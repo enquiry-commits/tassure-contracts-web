@@ -7,11 +7,18 @@ export function createSupabaseBrowserClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
-        // Override setAll to strip maxAge — makes cookies session-only
-        // (survive page refresh, cleared when browser closes)
-        set(name, value, options) {
-          const { maxAge: _, expires: __, ...rest } = options ?? {}
-          document.cookie = `${name}=${encodeURIComponent(value)}; path=/; SameSite=Lax${rest.secure ? '; Secure' : ''}`
+        getAll() {
+          return document.cookie.split('; ').filter(Boolean).map(c => {
+            const [name, ...rest] = c.split('=')
+            return { name, value: decodeURIComponent(rest.join('=')) }
+          })
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            const { maxAge: _, expires: __, ...rest } = options ?? {}
+            const secure = (rest as { secure?: boolean }).secure ? '; Secure' : ''
+            document.cookie = `${name}=${encodeURIComponent(value)}; path=/; SameSite=Lax${secure}`
+          })
         },
       },
     }
