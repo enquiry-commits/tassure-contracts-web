@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 
-const PIC_ORDER = ['Cindy', 'Hoe Chyi', 'Seng Xin', 'Jenny', 'Shi Ming', 'Kah Yu', 'Vincent']
+const PIC_ORDER = ['Cindy', 'Hoe Chyi', 'Seng Xin', 'Jenny', 'Shi Ming', 'Kah Ye', 'Vincent']
 
 export async function GET() {
   try {
