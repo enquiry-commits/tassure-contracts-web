@@ -1,12 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
+
+const SAVED_EMAIL_KEY = 'tassure_login_email'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+
+  useEffect(() => {
+    const saved = localStorage.getItem(SAVED_EMAIL_KEY)
+    if (saved) setEmail(saved)
+  }, [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -24,6 +31,8 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+
+    localStorage.setItem(SAVED_EMAIL_KEY, email)
 
     router.push('/proposal/generator')
     router.refresh()
@@ -57,7 +66,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
+              autoComplete="new-password"
               className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
