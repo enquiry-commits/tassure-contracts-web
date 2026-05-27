@@ -25,7 +25,7 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/proposal/admin')
+    router.push('/proposal/generator')
     router.refresh()
   }
 
