@@ -1,7 +1,20 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import ContractTable from '@/components/ContractTable'
 import Link from 'next/link'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 export default function AdminPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    createSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => {
+      if (!session) router.replace('/login')
+    })
+  }, [router])
+
   return (
     <div className="flex flex-col min-h-screen" style={{ fontFamily: 'system-ui, sans-serif' }}>
 
@@ -10,7 +23,6 @@ export default function AdminPage() {
         className="h-16 flex items-center px-6 gap-3 shrink-0 border-b border-[#B0C8E0]"
         style={{ backgroundColor: '#C8E0F4' }}
       >
-        {/* Logo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/tassure-logo.png" alt="Tassure" className="h-10 w-auto" />
         <span className="text-sm text-[#1A3F6F] opacity-70">Admin Dashboard</span>

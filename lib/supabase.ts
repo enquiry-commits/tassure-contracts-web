@@ -1,27 +1,18 @@
-import { createBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 
+// sessionStorage-backed client: session lives only for this tab
+// closing tab = logged out; refreshing tab = stays logged in
 export function createSupabaseBrowserClient() {
-  return createBrowserClient(
+  const storage = typeof window !== 'undefined' ? {
+    getItem: (key: string) => window.sessionStorage.getItem(key),
+    setItem: (key: string, value: string) => window.sessionStorage.setItem(key, value),
+    removeItem: (key: string) => window.sessionStorage.removeItem(key),
+  } : undefined
+
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return document.cookie.split('; ').filter(Boolean).map(c => {
-            const [name, ...rest] = c.split('=')
-            return { name, value: decodeURIComponent(rest.join('=')) }
-          })
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            const { maxAge: _, expires: __, ...rest } = options ?? {}
-            const secure = (rest as { secure?: boolean }).secure ? '; Secure' : ''
-            document.cookie = `${name}=${encodeURIComponent(value)}; path=/; SameSite=Lax${secure}`
-          })
-        },
-      },
-    }
+    { auth: { storage: storage as Storage, persistSession: true, autoRefreshToken: true } }
   )
 }
 

@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { SERVICES, CATEGORIES, DEFAULT_MAPPING, ROW_DEFS, type Service } from '@/lib/services'
 import { CC_ITEMS, type CcItem } from '@/lib/company-changes'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 // ── types ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +57,7 @@ function initFeeValues(): Record<string, string> {
 // ── main page ─────────────────────────────────────────────────────────────────
 
 function GeneratePageContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const prefilledCompany = searchParams.get('company') ?? ''
   const prefilledPic = searchParams.get('pic') ?? ''
@@ -129,6 +131,12 @@ function GeneratePageContent() {
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [lastRefId, setLastRefId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    createSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => {
+      if (!session) router.replace('/login')
+    })
+  }, [router])
 
   useEffect(() => {
     fetch('/api/pic')
