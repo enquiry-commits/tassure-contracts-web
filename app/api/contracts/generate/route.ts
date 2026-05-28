@@ -67,8 +67,7 @@ export async function POST(request: NextRequest) {
     const year = refDatePart.slice(0, 4)
     const month = refDatePart.slice(4, 6)
     const safeName = companyName.replace(/[^a-zA-Z0-9 _-]/g, '_').trim()
-    const suffix = mode === 'selected' ? '_Selected' : '_Full'
-    const fileName = `Tassure_Proposal 报价_${safeName}_${referenceId}${suffix}.docx`
+    const fileName = `Tassure_Proposal 报价_${safeName}_${referenceId}.docx`
     const filePath = `contracts/${year}/${month}/${fileName}`
 
     // Delete old file from storage if replacing
