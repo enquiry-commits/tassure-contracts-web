@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
       companyName, date, salutationEn, salutationCn,
       pic, mode, selected, feeOverrides, ccOverrides, sectionMapping,
       existingId, // present when replacing an existing record
+      focServices,
     } = body
 
     if (!companyName || !pic) {
@@ -50,25 +51,33 @@ export async function POST(request: NextRequest) {
       referenceId = `${dateStr}-${seqNumber}`
     }
 
-    const docBuffer = await generateDocx({
-      companyName,
-      date: date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'long', year: 'numeric' }),
-      salutationEn: salutationEn || 'Dear Management,',
-      salutationCn: salutationCn || '尊敬的领导，',
-      mode: mode || 'full',
-      selected: selected || [],
-      feeOverrides: feeOverrides || {},
-      ccOverrides: ccOverrides || {},
-      sectionMapping,
-    })
+    let docBuffer: Buffer
+    try {
+      docBuffer = await generateDocx({
+        companyName,
+        date: date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'long', year: 'numeric' }),
+        salutationEn: salutationEn || 'Dear Management,',
+        salutationCn: salutationCn || '尊敬的领导，',
+        mode: mode || 'full',
+        selected: selected || [],
+        feeOverrides: feeOverrides || {},
+        ccOverrides: ccOverrides || {},
+        sectionMapping,
+        focServices: focServices || [],
+      })
+    } catch (docErr) {
+      console.error('Doc generation error:', docErr)
+      return NextResponse.json({ error: `Doc error: ${String(docErr)}` }, { status: 500 })
+    }
 
     // Derive year/month from the referenceId itself so replace keeps original date folder
     const refDatePart = referenceId.slice(0, 8) // YYYYMMDD
     const year = refDatePart.slice(0, 4)
     const month = refDatePart.slice(4, 6)
     const safeName = companyName.replace(/[^a-zA-Z0-9 _-]/g, '_').trim()
-    const fileName = `Tassure_Proposal 报价_${safeName}_${referenceId}.docx`
-    const filePath = `contracts/${year}/${month}/${fileName}`
+    const displayFileName = `Tassure_Proposal 报价_${safeName}_${referenceId}.docx`
+    const storageFileName = `Tassure_Proposal_${safeName.replace(/\s+/g, '_')}_${referenceId}.docx`
+    const filePath = `contracts/${year}/${month}/${storageFileName}`
 
     // Delete old file from storage if replacing
     if (oldFilePath && oldFilePath !== filePath) {
@@ -84,12 +93,14 @@ export async function POST(request: NextRequest) {
 
     if (uploadError) {
       console.error('Upload error:', uploadError)
-      return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 })
+      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
     }
 
     const { data: signedUrlData, error: urlError } = await supabase.storage
       .from('contracts')
-      .createSignedUrl(filePath, 60 * 60 * 24 * 7)
+      .createSignedUrl(filePath, 60 * 60 * 24 * 7, {
+        download: displayFileName,
+      })
 
     if (urlError || !signedUrlData) {
       return NextResponse.json({ error: 'Failed to create download URL' }, { status: 500 })
