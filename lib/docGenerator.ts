@@ -206,9 +206,19 @@ const HEADING_RE = /^\s*(\d+)\.\s+\S/
 function removeServiceSections(body: Element, selected: Set<string>): void {
   const paras = directChildren(body, 'p')
 
+  // Find the boundary paragraph that separates service description sections from the fee tables.
+  // The new template uses a built-in page break paragraph + "Company Incorporation..." heading
+  // instead of the old "Related Service Fees" sentinel.
   let feeStartIdx = paras.length
   for (let i = 0; i < paras.length; i++) {
-    if (paraText(paras[i]).includes('Related Service Fees')) {
+    const text = paraText(paras[i])
+    if (text.includes('Related Service Fees') || text.includes('Company Incorporation and First-Year Service Fees')) {
+      feeStartIdx = i
+      break
+    }
+    // The template has a <w:br type="page"/> paragraph right before the fee heading — treat it as the boundary.
+    const hasPageBreak = allDescendants(paras[i], 'br').some(br => (br as Element).getAttribute('w:type') === 'page')
+    if (hasPageBreak) {
       feeStartIdx = i
       break
     }
@@ -312,7 +322,7 @@ function processMainTable(
     INCORP: 900, SECRETARIAL: 700, ADDRESS: 360, ND: 3000, EP: 4000, BANK: 1000,
   }
 
-  // Find heading immediately before tbl — needed for both page-break insertion and removal.
+  // Find heading immediately before tbl — needed when removing the table.
   const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
     .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
   const tblIdx = bodyKids.indexOf(tbl)
@@ -330,15 +340,8 @@ function processMainTable(
     return
   }
 
-  // Insert page break before heading so heading + table always start on a new page.
-  const pbInsertBefore = headingBeforeTbl ?? tbl
-  const pbPara = xmlDoc.createElement('w:p')
-  const pbRun = xmlDoc.createElement('w:r')
-  const pbBr = xmlDoc.createElement('w:br')
-  pbBr.setAttribute('w:type', 'page')
-  pbRun.appendChild(pbBr)
-  pbPara.appendChild(pbRun)
-  body.insertBefore(pbPara, pbInsertBefore)
+  // The template already contains a built-in <w:br type="page"/> paragraph immediately
+  // before the "Company Incorporation..." heading, so no additional page break is needed here.
 
   // Calculate total (F.O.C. services excluded — shown in their cell but not summed).
   let newTotal = 0
