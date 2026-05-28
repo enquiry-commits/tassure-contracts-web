@@ -18,6 +18,7 @@ export interface DocInput {
   feeOverrides: Record<string, number>
   ccOverrides: Record<string, number>
   sectionMapping?: Record<string, string[]>
+  focServices?: string[]
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -108,6 +109,26 @@ function updateCcCell(tc: Element, amount: number): void {
         }
       }
     }
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setFeeCellFoc(tc: Element, xmlDoc: any): void {
+  const existingParas = directChildren(tc, 'p')
+  const template = existingParas.length > 0 ? existingParas[0].cloneNode(true) as Element : null
+  for (const p of existingParas) p.parentNode?.removeChild(p)
+
+  const lines = ['F.O.C.', 'Included in package', '不另收费', '(含在报价配套内)']
+  for (const line of lines) {
+    const newPara = template ? template.cloneNode(true) as Element : xmlDoc.createElement('w:p')
+    for (const r of allDescendants(newPara, 'r')) r.parentNode?.removeChild(r)
+    const run = xmlDoc.createElement('w:r')
+    const t = xmlDoc.createElement('w:t')
+    t.setAttribute('xml:space', 'preserve')
+    t.textContent = line
+    run.appendChild(t)
+    newPara.appendChild(run)
+    tc.appendChild(newPara)
   }
 }
 
@@ -265,6 +286,7 @@ function processMainTable(
   mapping: Record<string, string[]>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xmlDoc: any,
+  focServicesSet: Set<string>,
 ): void {
   const MAIN_FEES: Record<string, number> = {
     INCORP: 900, SECRETARIAL: 700, ADDRESS: 360, ND: 3000, EP: 4000, BANK: 1000,
@@ -272,17 +294,17 @@ function processMainTable(
 
   let newTotal = 0
   for (const [k, v] of Object.entries(MAIN_FEES)) {
-    if (sel.has(k)) newTotal += feeOv[k] ?? v
+    if (sel.has(k) && !focServicesSet.has(k)) newTotal += feeOv[k] ?? v
   }
   for (const svc of SERVICES) {
     if (svc.table === 'main' && ['foc', 'bundled'].includes(svc.fee_type) && sel.has(svc.key)) {
       const extra = feeOv[svc.key]
-      if (extra) newTotal += extra
+      if (extra && !focServicesSet.has(svc.key)) newTotal += extra
     }
   }
 
   const ndDeposit = feeOv['ND_DEPOSIT']
-  if (ndDeposit && sel.has('ND')) newTotal += ndDeposit
+  if (ndDeposit && sel.has('ND') && !focServicesSet.has('ND')) newTotal += ndDeposit
 
   if (newTotal === 0) {
     tbl.parentNode?.removeChild(tbl)
@@ -294,6 +316,24 @@ function processMainTable(
     }
     return
   }
+
+  // Insert page break so the heading + table always start on a new page.
+  // Find the last <w:p> immediately before tbl (that's the "Company Incorporation..." heading).
+  const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+    .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+  const tblIdx = bodyKids.indexOf(tbl)
+  let headingBeforeTbl: Element | null = null
+  for (let i = tblIdx - 1; i >= 0; i--) {
+    if (bodyKids[i].localName === 'p') { headingBeforeTbl = bodyKids[i]; break }
+  }
+  const pbInsertBefore = headingBeforeTbl ?? tbl
+  const pbPara = xmlDoc.createElement('w:p')
+  const pbRun = xmlDoc.createElement('w:r')
+  const pbBr = xmlDoc.createElement('w:br')
+  pbBr.setAttribute('w:type', 'page')
+  pbRun.appendChild(pbBr)
+  pbPara.appendChild(pbRun)
+  body.insertBefore(pbPara, pbInsertBefore)
 
   const rowsToRemove: Element[] = []
   for (const row of directChildren(tbl, 'tr')) {
@@ -309,13 +349,17 @@ function processMainTable(
     const rid = rowIdForCell(cellText(cells[0]), 'main')
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
-      if (svcKey && feeOv[svcKey] !== undefined) {
-        updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+      if (svcKey) {
+        if (focServicesSet.has(svcKey)) {
+          setFeeCellFoc(cells[cells.length - 1], xmlDoc)
+        } else if (feeOv[svcKey] !== undefined) {
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+        }
       }
     }
   }
 
-  if (ndDeposit && sel.has('ND')) addNdDepositRow(tbl, ndDeposit, xmlDoc)
+  if (ndDeposit && sel.has('ND') && !focServicesSet.has('ND')) addNdDepositRow(tbl, ndDeposit, xmlDoc)
 
   const finalRows = directChildren(tbl, 'tr')
   if (finalRows.length > 0) {
@@ -331,6 +375,9 @@ function processOptTable(
   body: Element, tbl: Element,
   sel: Set<string>, feeOv: Record<string, number>,
   mapping: Record<string, string[]>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  xmlDoc: any,
+  focServicesSet: Set<string>,
 ): void {
   const OPT_FEES: Record<string, number> = {
     ACCOUNTS: 1500, SECRETARIAL: 700, ADDRESS: 360, AR: 60,
@@ -365,12 +412,12 @@ function processOptTable(
 
   let newTotal = 0
   for (const [k, v] of Object.entries(OPT_FEES)) {
-    if (sel.has(k)) newTotal += feeOv[k] ?? v
+    if (sel.has(k) && !focServicesSet.has(k)) newTotal += feeOv[k] ?? v
   }
   for (const svc of SERVICES) {
     if (svc.table === 'optional' && ['foc', 'bundled', 'quote'].includes(svc.fee_type) && sel.has(svc.key)) {
       const extra = feeOv[svc.key]
-      if (extra) newTotal += extra
+      if (extra && !focServicesSet.has(svc.key)) newTotal += extra
     }
   }
 
@@ -380,8 +427,12 @@ function processOptTable(
     const rid = rowIdForCell(cellText(cells[0]), 'opt')
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
-      if (svcKey && feeOv[svcKey] !== undefined) {
-        updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+      if (svcKey) {
+        if (focServicesSet.has(svcKey)) {
+          setFeeCellFoc(cells[cells.length - 1], xmlDoc)
+        } else if (feeOv[svcKey] !== undefined) {
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+        }
       }
     }
   }
@@ -399,6 +450,9 @@ function processOptTable(
 function processEpTable(
   tbl: Element, sel: Set<string>, feeOv: Record<string, number>,
   mapping: Record<string, string[]>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  xmlDoc: any,
+  focServicesSet: Set<string>,
 ): void {
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
@@ -425,8 +479,12 @@ function processEpTable(
     const rid = rowIdForCell(cellText(cells[0]), 'ep')
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
-      if (svcKey && feeOv[svcKey] !== undefined) {
-        updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+      if (svcKey) {
+        if (focServicesSet.has(svcKey)) {
+          setFeeCellFoc(cells[cells.length - 1], xmlDoc)
+        } else if (feeOv[svcKey] !== undefined) {
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+        }
       }
     }
   }
@@ -488,6 +546,7 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   const mapping = input.sectionMapping ?? Object.fromEntries(
     Object.entries(DEFAULT_MAPPING).map(([k, v]) => [k, [...v]])
   )
+  const focServicesSet = new Set(input.focServices ?? [])
 
   fillHeader(body, input, xmlDoc)
 
@@ -497,9 +556,9 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   }
 
   const tables = directChildren(body, 'tbl')
-  if (tables.length >= 1) processMainTable(body, tables[0], selected, input.feeOverrides, mapping, xmlDoc)
-  if (tables.length >= 2) processOptTable(body, tables[1], selected, input.feeOverrides, mapping)
-  if (tables.length >= 3) processEpTable(tables[2], selected, input.feeOverrides, mapping)
+  if (tables.length >= 1) processMainTable(body, tables[0], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
+  if (tables.length >= 2) processOptTable(body, tables[1], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
+  if (tables.length >= 3) processEpTable(tables[2], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
   if (tables.length >= 4) processChangesTable(tables[3], input.ccOverrides)
 
   addAppendixSpacing(body, xmlDoc)
