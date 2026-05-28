@@ -69,12 +69,20 @@ function rowIdForCell(text: string, table: string): string | null {
   return null
 }
 
-function rowLinked(text: string, table: string, sel: Set<string>, mapping: Record<string, string[]>): boolean {
+// Join text from all cells so tables with a leading "No." column still match correctly.
+function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: Record<string, string[]>): boolean {
+  const text = cells.map(c => cellText(c)).join(' ')
   if (text.includes('Service Scope') || text.includes('Total')) return true
   if (table === 'main' && text.includes('Corporate Consultation Support')) return true
   const rid = rowIdForCell(text, table)
   if (rid === null) return true
   return [...sel].some(k => (mapping[k] ?? []).includes(rid))
+}
+
+// Find row ID by searching across all cells (handles tables with a leading number column).
+function findRowId(cells: Element[], table: string): string | null {
+  const text = cells.map(c => cellText(c)).join(' ')
+  return rowIdForCell(text, table)
 }
 
 function updateFeeCell(tc: Element, amount: number): void {
@@ -245,7 +253,7 @@ function addNdDepositRow(tbl: Element, depositFee: number, xmlDoc: any): void {
   let ndTr: Element | null = null
   for (const tr of directChildren(tbl, 'tr')) {
     const cells = directChildren(tr, 'tc')
-    if (cells.length > 0 && cellText(cells[0]).includes('Nominee Director')) {
+    if (cells.length > 0 && cells.some(c => cellText(c).includes('Nominee Director'))) {
       ndTr = tr
       break
     }
@@ -339,14 +347,14 @@ function processMainTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    if (!rowLinked(cellText(cells[0]), 'main', sel, mapping)) rowsToRemove.push(row)
+    if (!rowLinked(cells, 'main', sel, mapping)) rowsToRemove.push(row)
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const rid = rowIdForCell(cellText(cells[0]), 'main')
+    const rid = findRowId(cells, 'main')
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
@@ -389,11 +397,11 @@ function processOptTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const txt = cellText(cells[0])
-    if (!rowLinked(txt, 'opt', sel, mapping)) {
+    if (!rowLinked(cells, 'opt', sel, mapping)) {
       rowsToRemove.push(row)
-    } else if (!txt.includes('Service Scope') && !txt.includes('Total')) {
-      dataRowsKept++
+    } else {
+      const txt = cells.map(c => cellText(c)).join(' ')
+      if (!txt.includes('Service Scope') && !txt.includes('Total')) dataRowsKept++
     }
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
@@ -424,7 +432,7 @@ function processOptTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const rid = rowIdForCell(cellText(cells[0]), 'opt')
+    const rid = findRowId(cells, 'opt')
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
@@ -459,11 +467,11 @@ function processEpTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const txt = cellText(cells[0])
-    if (!rowLinked(txt, 'ep', sel, mapping)) {
+    if (!rowLinked(cells, 'ep', sel, mapping)) {
       rowsToRemove.push(row)
-    } else if (!txt.includes('Service Scope')) {
-      dataRowsKept++
+    } else {
+      const txt = cells.map(c => cellText(c)).join(' ')
+      if (!txt.includes('Service Scope')) dataRowsKept++
     }
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
@@ -476,7 +484,7 @@ function processEpTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const rid = rowIdForCell(cellText(cells[0]), 'ep')
+    const rid = findRowId(cells, 'ep')
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
