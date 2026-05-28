@@ -536,6 +536,11 @@ const CAT_ICONS: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h5l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2z" />
     </svg>
   ),
+  extra: (
+    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+    </svg>
+  ),
 }
 
 // ── Quote Builder Tab ─────────────────────────────────────────────────────────
@@ -564,6 +569,11 @@ function QuoteBuilderTab({
     groups[svc.cat] = groups[svc.cat] ?? []
     groups[svc.cat].push(svc)
   }
+  // Template Table 2 includes Secretarial (row 2) and Address (row 3) which also appear in Table 1.
+  // Explicitly build table2 in template order: ACCOUNTS, SECRETARIAL, ADDRESS, AR, UNAUDITEDFS, COMPANYTAX, PERSONALTAX, PAYROLL
+  const svcByKey = Object.fromEntries(SERVICES.map(s => [s.key, s]))
+  groups['table2'] = ['ACCOUNTS', 'SECRETARIAL', 'ADDRESS', 'AR', 'UNAUDITEDFS', 'COMPANYTAX', 'PERSONALTAX', 'PAYROLL']
+    .map(k => svcByKey[k]).filter(Boolean)
 
   return (
     <div className="p-4">
