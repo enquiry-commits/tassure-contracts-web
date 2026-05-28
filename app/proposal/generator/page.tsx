@@ -31,6 +31,7 @@ function getEffectiveFee(
   focModes: Record<string, FocMode>,
   quoteModes: Record<string, QuoteMode>,
 ): number {
+  if (focModes[svc.key] === 'F.O.C.') return 0
   if (svc.fee_type === 'foc' || svc.fee_type === 'bundled') {
     return focModes[svc.key] === 'SGD' ? parseFee(feeValues[svc.key] ?? '0') : 0
   }
@@ -83,6 +84,7 @@ function GeneratePageContent() {
     const m: Record<string, FocMode> = {}
     for (const svc of SERVICES) {
       if (svc.fee_type === 'foc' || svc.fee_type === 'bundled') m[svc.key] = 'F.O.C.'
+      else if (svc.fee !== null && svc.fee_type !== 'quote') m[svc.key] = 'SGD'
     }
     return m
   })
@@ -233,6 +235,13 @@ function GeneratePageContent() {
       }
     }
 
+    const focServices: string[] = []
+    for (const svc of SERVICES) {
+      if (svc.fee !== null && svc.fee_type !== 'foc' && svc.fee_type !== 'bundled' && svc.fee_type !== 'quote' && focModes[svc.key] === 'F.O.C.') {
+        focServices.push(svc.key)
+      }
+    }
+
     try {
       const resp = await fetch('/api/contracts/generate', {
         method: 'POST',
@@ -248,6 +257,7 @@ function GeneratePageContent() {
           feeOverrides,
           ccOverrides,
           sectionMapping,
+          focServices,
           ...(replaceId ? { existingId: replaceId } : {}),
         }),
       })
@@ -511,29 +521,19 @@ export default function GeneratePage() {
 // ── Category icons (white SVG paths) ─────────────────────────────────────────
 
 const CAT_ICONS: Record<string, React.ReactNode> = {
-  setup: (
+  table1: (
     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 21V8l9-6 9 6v13M9 21v-6h6v6" />
     </svg>
   ),
-  workpass: (
-    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h5l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2z" />
-    </svg>
-  ),
-  compliance: (
+  table2: (
     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
     </svg>
   ),
-  financial: (
+  table3: (
     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-    </svg>
-  ),
-  people: (
-    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 100-8 4 4 0 000 8zm6 0a3 3 0 100-6 3 3 0 000 6zM3 16a3 3 0 100-6 3 3 0 000 6z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h5l2 2h3a2 2 0 012 2v12a2 2 0 01-2 2z" />
     </svg>
   ),
 }
@@ -702,7 +702,12 @@ function ServiceRow({
             />
           )}
           {isNumeric && (
-            <NumericBadge value={feeValue} onChange={onFeeChange} />
+            <NumericFocBadge
+              mode={focMode ?? 'SGD'}
+              value={feeValue}
+              onModeChange={onFocModeChange}
+              onValueChange={onFeeChange}
+            />
           )}
         </div>
       </div>
@@ -800,6 +805,38 @@ function NumericBadge({ value, onChange }: { value: string; onChange: (v: string
         onChange={e => onChange(e.target.value)}
         className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
       />
+    </div>
+  )
+}
+
+function NumericFocBadge({ mode, value, onModeChange, onValueChange }: {
+  mode: FocMode; value: string;
+  onModeChange: (m: FocMode) => void; onValueChange: (v: string) => void
+}) {
+  const isFoc = mode === 'F.O.C.'
+  return (
+    <div className={`flex items-center rounded-lg px-2 py-1.5 gap-1.5 ${isFoc ? 'bg-[#E6F4EC]' : 'bg-[#E8F0FB]'}`}>
+      <select
+        value={mode}
+        onChange={e => onModeChange(e.target.value as FocMode)}
+        className={`text-xs font-bold rounded px-1 py-0.5 border-0 cursor-pointer ${
+          isFoc ? 'bg-[#2D7D4E] text-white' : 'bg-[#1A3F6F] text-white'
+        }`}
+      >
+        <option>SGD</option>
+        <option>F.O.C.</option>
+      </select>
+      {!isFoc && (
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-bold text-[#1A3F6F]">SGD</span>
+          <input
+            type="text"
+            value={value}
+            onChange={e => onValueChange(e.target.value)}
+            className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -998,10 +1035,10 @@ function SelectedServicesPopup({ services, feeValues, focModes, quoteModes, onCl
           ) : (
             services.map((svc, i) => {
               const fee = getEffectiveFee(svc, feeValues, focModes, quoteModes)
+              const isFocDisplay = fee === 0 && (focModes[svc.key] === 'F.O.C.' || svc.fee_type === 'foc' || svc.fee_type === 'bundled')
               const feeDisplay = fee > 0
                 ? `SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
-                : svc.fee_str
-              const isFoc = svc.fee_type === 'foc' || svc.fee_type === 'bundled'
+                : isFocDisplay ? 'F.O.C.' : svc.fee_str
               return (
                 <div key={svc.key}
                   className="flex items-center rounded-lg border border-[#D8E8F4] mb-2 px-3 py-2"
@@ -1011,7 +1048,7 @@ function SelectedServicesPopup({ services, feeValues, focModes, quoteModes, onCl
                     <div className="text-sm font-bold text-[#1A1A2E]">{svc.en}</div>
                     <div className="text-xs text-gray-500">{svc.cn}</div>
                   </div>
-                  <span className={`text-sm font-bold ${isFoc && fee === 0 ? 'text-[#2D7D4E]' : 'text-[#1A3F6F]'}`}>
+                  <span className={`text-sm font-bold ${isFocDisplay ? 'text-[#2D7D4E]' : 'text-[#1A3F6F]'}`}>
                     {feeDisplay}
                   </span>
                 </div>

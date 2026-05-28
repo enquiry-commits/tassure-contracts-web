@@ -20,10 +20,10 @@ export interface Service {
 
 export const SERVICES: Service[] = [
   {
-    key: 'INCORP', cat: 'setup', num: 1,
-    en: 'Company Incorporation Services', cn: '新加坡公司设立',
+    key: 'INCORP', cat: 'table1', num: 1,
+    en: 'Company Incorporation Service', cn: '公司注册服务',
     fee: 900, fee_type: 'onetime', fee_str: 'SGD 900.00', fee_note: 'One-time fee / 一次性',
-    default: true, content_type: 'bullets',
+    default: false, content_type: 'bullets',
     content: [
       ['Company KYC and background checks for all directors and shareholders', '客户背景调查和尽职调查'],
       ['Name application and Company registration including all government fees', '公司名字申请和成立（包括政府费用$315）'],
@@ -42,10 +42,10 @@ export const SERVICES: Service[] = [
     table_desc: ['Company self-ink stamp  公司章', 'Statutory compliance filings — Nominee Director declaration, Nominee Shareholder declaration, Register of Controllers  合规申报', 'Certificate of Incorporation (1 copy)  公司成立证书（一份）'],
   },
   {
-    key: 'SECRETARIAL', cat: 'setup', num: 2,
-    en: 'Corporate Secretarial Services', cn: '公司法定秘书服务',
+    key: 'SECRETARIAL', cat: 'table1', num: 2,
+    en: 'Corporate Secretarial Services - Yearly', cn: '公司法定秘书服务（年费）',
     fee: 700, fee_type: 'yearly', fee_str: 'SGD 700.00', fee_note: 'Per year / 每年',
-    default: true, content_type: 'bullets',
+    default: false, content_type: 'bullets',
     content: [
       ['Safe custody of statutory records (e.g. register of shareholders, directors and secretaries, transfer, charges etc.)', '秘书档案建立和管理'],
       ['Preparing all documentation for the routine Annual General Meeting ("AGM") as required by the Singapore Companies Act', '根据《新加坡公司法1967》的要求，准备年度股东大会的文件'],
@@ -61,10 +61,10 @@ export const SERVICES: Service[] = [
     table_desc: ['Refer to Service 2 for full scope  详见第二项服务内容', 'Includes: important date reminders, statutory records, AGM documentation and Annual Return filing  包括：重要日期提醒、保存/更新公司记录、年度股东大会文件及年检递交', 'Excludes accounting and tax services  不含财税服务'],
   },
   {
-    key: 'ADDRESS', cat: 'setup', num: 3,
-    en: 'Company Registered and Mailing Address Services', cn: '公司注册地址服务',
+    key: 'ADDRESS', cat: 'table1', num: 3,
+    en: 'Registered Office and Mailing Address Services - Yearly', cn: '公司注册地址及收信服务（年费）',
     fee: 360, fee_type: 'yearly', fee_str: 'SGD 360.00', fee_note: 'Per year / 每年',
-    default: true, content_type: 'bullets',
+    default: false, content_type: 'bullets',
     content: [
       ['Registered address', '公司注册使用地址'],
       ['Mails checking/collection/scanning/emailing', '收信服务/扫描/邮件信件'],
@@ -74,8 +74,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Registered office address for company use  公司注册使用地址', 'Mail collection, scanning and forwarding  信件收取、扫描及转发'],
   },
   {
-    key: 'ND', cat: 'setup', num: 4,
-    en: 'Local Nominee Director Service', cn: '本地挂名董事服务',
+    key: 'ND', cat: 'table1', num: 4,
+    en: 'Local Nominee Director Service - Yearly', cn: '本地挂名董事服务（年费）',
     fee: 3000, fee_type: 'onetime', fee_str: 'SGD 3,000.00', fee_note: 'One-time fee / 一次性',
     default: false, content_type: 'bullets',
     content: [
@@ -87,8 +87,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Provision of a qualified local Singaporean as Nominee Director in ACRA  委派专业人士在公司注册局（ACRA）担任本地挂名董事', 'No operational involvement; governed by Nominee Director Agreement  不参与公司运营，受挂名董事协议约束'],
   },
   {
-    key: 'BANK', cat: 'setup', num: 5,
-    en: 'Company Bank Account Opening Support', cn: '公司账户协助开户',
+    key: 'BANK', cat: 'table1', num: 5,
+    en: 'Corporate Bank Account Opening Support', cn: '企业银行账户开户协助',
     fee: 1000, fee_type: 'onetime', fee_str: 'SGD 1,000.00', fee_note: 'One-time fee / 一次性',
     default: false, content_type: 'bullets',
     content: [
@@ -100,8 +100,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Assistance with corporate bank account opening across major Singapore banks (UOB / OCBC / Standard Chartered / CIMB / DBS)  协助在新加坡主要银行开通企业账户', 'Declaration and lodgement of initial paid-up capital  呈报实缴注册资本金'],
   },
   {
-    key: 'EP', cat: 'workpass', num: 6,
-    en: 'Employment Pass Application Service', cn: '就业准证 EP 申请服务',
+    key: 'EP', cat: 'table1', num: 6,
+    en: 'Employment Pass (EP) Application Service', cn: '就业准证（EP）申请服务',
     fee: 4000, fee_type: 'onetime', fee_str: 'SGD 4,000.00', fee_note: 'One-time fee / 一次性',
     default: false, content_type: 'paras',
     content: [
@@ -113,8 +113,8 @@ export const SERVICES: Service[] = [
     table_desc: ['EP application submission via MOM-licensed agent  通过人力部执照递交EP申请', 'Preparation of supporting documents (employment contract, cover letter, CV, service agreement, etc.)  申请支持文件协助准备', 'Online appointment booking and EP card collection  网上预约及签发EP卡', 'Accompany client to MOM for in-person registration (if required)  陪同客户前往人力部登记（如需）', 'Personal bank account setup assistance and advisory (if required)  个人账户协助开设及相关咨询（如需）'],
   },
   {
-    key: 'DP', cat: 'workpass', num: 7,
-    en: "Dependant's Pass (DP) Application Service", cn: '家属准证（DP）申请服务',
+    key: 'DP', cat: 'table3', num: 7,
+    en: "DP Application", cn: '家属准证申请',
     fee: 800, fee_type: 'per_person', fee_str: 'SGD 800.00', fee_note: 'Per applicant / 每位',
     default: false, content_type: 'paras',
     content: [
@@ -125,8 +125,8 @@ export const SERVICES: Service[] = [
     table_desc: ["Full DP application process for eligible family members of EP / S Pass holders  为EP/S Pass持有人符合资格之家属办理完整DP申请流程"],
   },
   {
-    key: 'LOC', cat: 'workpass', num: 8,
-    en: 'Letter of Consent (LOC) for Secondary Directorship', cn: '兼任董事工作许可同意书（LOC）申请服务',
+    key: 'LOC', cat: 'table3', num: 8,
+    en: 'Letter of Consent (LOC) Application', cn: '工作许可同意书（LOC）申请',
     fee: 200, fee_type: 'per_person', fee_str: 'SGD 200.00', fee_note: 'Per applicant / 每位',
     default: false, content_type: 'paras',
     content: [
@@ -137,8 +137,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Comprehensive application service for DP Business Owners or EP Secondary Directorships, including compliance advisory and statutory document drafting  为DP企业主或EP兼任董事提供完整的申请服务'],
   },
   {
-    key: 'PASSRENEWAL', cat: 'workpass', num: 9,
-    en: 'Work Pass Renewal Service', cn: '工作准证续签服务',
+    key: 'PASSRENEWAL', cat: 'table3', num: 9,
+    en: 'EP Renewal Service', cn: 'EP 续约（每2年一次）',
     fee: 1800, fee_type: 'onetime', fee_str: 'SGD 1,800.00', fee_note: 'Inclusive of Government fee / 含政府费用',
     default: false, content_type: 'paras',
     content: [
@@ -149,8 +149,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Full EP renewal application process including document preparation and MOM submission (every 2 years)  包括文件准备及向人力部提交的完整EP续签申请流程（每2年一次）'],
   },
   {
-    key: 'AR', cat: 'compliance', num: 10,
-    en: 'Annual Return Service', cn: '年检申报服务',
+    key: 'AR', cat: 'table2', num: 10,
+    en: 'Annual Return Services', cn: '年检+股东大会',
     fee: 60, fee_type: 'govt', fee_str: 'SGD 60.00', fee_note: 'Government fee / 政府费用',
     default: false, content_type: 'paras',
     content: [
@@ -160,7 +160,7 @@ export const SERVICES: Service[] = [
     table_desc: ['Preparation of AGM documentation and electronic filing of Annual Return with ACRA  准备年度股东大会文件及向ACRA电子提交年检申报', 'Government filing fee: SGD 60 (applicable separately)  政府申报费用：SGD 60（另行收取）'],
   },
   {
-    key: 'XBRL', cat: 'compliance', num: 11,
+    key: 'XBRL', cat: 'table2', num: 11,
     en: 'XBRL Reporting Service', cn: '转换和准备XBRL报告',
     fee: null, fee_type: 'quote', fee_str: 'Quote', fee_note: 'Based on company structure',
     default: false, content_type: 'paras',
@@ -172,8 +172,8 @@ export const SERVICES: Service[] = [
     table_desc: ['XBRL conversion and reporting based on company structure  XBRL报告转换，依据公司股权结构而定'],
   },
   {
-    key: 'ACCOUNTS', cat: 'financial', num: 12,
-    en: 'Management Accounts Preparation Services – Yearly', cn: '做账服务（一年一次）',
+    key: 'ACCOUNTS', cat: 'table2', num: 12,
+    en: 'Accounts Preparation - Yearly', cn: '年度做账服务',
     fee: 1500, fee_type: 'from', fee_str: 'From SGD 1,500', fee_note: 'Depending on business volume / 根据业务量',
     default: false, content_type: 'bullets',
     content: [
@@ -187,8 +187,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Bookkeeping and financial data processing based on client records and supporting documents  基于客户记录及凭证的账务处理及财务数据整理', 'Fee varies according to volume of transactions  费用根据业务量调整'],
   },
   {
-    key: 'UNAUDITEDFS', cat: 'financial', num: 13,
-    en: 'Unaudited Financial Statement Preparation Services', cn: '非审计财务报告',
+    key: 'UNAUDITEDFS', cat: 'table2', num: 13,
+    en: 'Unaudit Report', cn: '非审计报告',
     fee: 700, fee_type: 'yearly', fee_str: 'SGD 700.00', fee_note: 'Per year / 每年',
     default: false, content_type: 'bullets',
     content: [
@@ -200,7 +200,7 @@ export const SERVICES: Service[] = [
     table_desc: ["Compilation of unaudited financial statements including directors' statement, balance sheet, income statement and cash flow statement  编制非审计财务报表，含董事报表、资产负债表、损益表及现金流量表"],
   },
   {
-    key: 'AUDIT', cat: 'financial', num: 14,
+    key: 'AUDIT', cat: 'table2', num: 14,
     en: 'Auditing Services', cn: '公司审计',
     fee: null, fee_type: 'quote', fee_str: 'Quote', fee_note: 'Quote once year end and accounts done',
     default: false, content_type: 'bullets',
@@ -213,8 +213,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Quote provided once year-end financials and accounts are completed  待年底财务账目完成后提供报价'],
   },
   {
-    key: 'COMPANYTAX', cat: 'financial', num: 15,
-    en: 'Annual Corporate Taxation', cn: '税务计算与申报',
+    key: 'COMPANYTAX', cat: 'table2', num: 15,
+    en: 'Corporate Taxation', cn: '税务计算与申报',
     fee: 700, fee_type: 'yearly', fee_str: 'SGD 700.00', fee_note: 'Per year / 每年',
     default: false, content_type: 'bullets',
     content: [
@@ -227,7 +227,7 @@ export const SERVICES: Service[] = [
     table_desc: ['Preparation of corporate income tax return and computation in compliance with the Singapore Income Tax Act  根据《新加坡所得税法》准备企业所得税申报表及计算表', 'Submission to the Inland Revenue Authority of Singapore (IRAS)  向新加坡税务局（IRAS）提交申报'],
   },
   {
-    key: 'AIS', cat: 'people', num: 16,
+    key: 'AIS', cat: 'table2', num: 16,
     en: 'AIS/IR8A Services', cn: '员工年收入申报',
     fee: null, fee_type: 'bundled', fee_str: 'Bundled', fee_note: 'Included with Personal Tax / 含在个人税服务中',
     default: false, content_type: 'paras',
@@ -239,8 +239,8 @@ export const SERVICES: Service[] = [
     table_desc: ['AIS account setup and employment income submission  自动纳入计划账户开设及雇佣收入申报', 'IR8A preparation where AIS not applicable  IR8A表格准备（不参与AIS计划时适用）'],
   },
   {
-    key: 'PAYROLL', cat: 'people', num: 17,
-    en: 'Payroll Service', cn: '薪资服务',
+    key: 'PAYROLL', cat: 'table2', num: 17,
+    en: 'Payroll Service', cn: '工资服务',
     fee: 600, fee_type: 'yearly', fee_str: 'SGD 600.00', fee_note: 'SGD 50/month × 12  (up to 2 persons)',
     default: false, content_type: 'paras',
     content: [
@@ -252,8 +252,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Monthly payroll processing, payslip issuance, CPF and Skills Development Levy (SDL) submission  每月薪资处理、薪水单出具、公积金（CPF）及技能发展税（SDL）申报', 'SGD 30 per additional headcount beyond 2 persons  超过2人每增加一人加收SGD 30'],
   },
   {
-    key: 'PERSONALTAX', cat: 'people', num: 18,
-    en: 'Personal Tax', cn: '个人税务申报',
+    key: 'PERSONALTAX', cat: 'table2', num: 18,
+    en: 'Personal Tax Submission', cn: '个人税务申报',
     fee: 300, fee_type: 'yearly', fee_str: 'SGD 300.00', fee_note: 'Per year / 每年  (1 director)',
     default: false, content_type: 'paras',
     content: [
@@ -265,10 +265,10 @@ export const SERVICES: Service[] = [
     table_desc: ['Personal income tax return preparation and filing with IRAS  个人所得税申报表准备及向IRAS提交', 'Auto-Inclusion Scheme (AIS) account setup and employment income submission for 1 director  为1名董事开设及提交自动纳入计划（AIS）雇佣收入申报'],
   },
   {
-    key: 'CORPPASS', cat: 'people', num: 19,
-    en: 'CorpPass Registration Service', cn: '公司企业通行证账户申请',
+    key: 'CORPPASS', cat: 'table1', num: 19,
+    en: 'CorpPass Account Registration', cn: '企业通行证（CorpPass）账号开通',
     fee: 0, fee_type: 'foc', fee_str: 'F.O.C.', fee_note: 'Included in package / 涵盖在此服务配套里面',
-    default: true, content_type: 'paras',
+    default: false, content_type: 'paras',
     content: [
       ["CorpPass is Singapore's official corporate digital identity platform, which allows companies and authorised users to access and transact with Singapore government agencies electronically.", 'CorpPass 是新加坡政府官方企业数字身份平台，用于公司及授权用户登录及办理各类政府机构电子服务。'],
       ['Assist the Company with the application, registration, setup, and activation of the Company\'s CorpPass account, including administrator/user setup.', '服务提供方将协助公司申请、注册、设立及启用CorpPass账户，包括管理员/用户设置权限等。'],
@@ -279,11 +279,9 @@ export const SERVICES: Service[] = [
 ]
 
 export const CATEGORIES: [string, string][] = [
-  ['setup',      'Corporate Setup'],
-  ['workpass',   'Work Pass Services'],
-  ['compliance', 'Annual Compliance'],
-  ['financial',  'Financial Services'],
-  ['people',     'People & Payroll'],
+  ['table1', 'Table 1 — Year 1 Setup Services  第一年服务'],
+  ['table2', 'Table 2 — Annual Maintenance  年度维护服务'],
+  ['table3', 'Table 3 — EP / Work Pass  工作准证服务'],
 ]
 
 export const SERVICE_MAP: Record<string, Service> = Object.fromEntries(SERVICES.map(s => [s.key, s]))
@@ -304,27 +302,31 @@ export const TEMPLATE_ORDER = [
 ]
 
 export const ROW_DEFS: Record<string, { table: string; label: string; match: string }> = {
+  // ── Table 1 (main) ── match strings verified against V2026.0528 template
   MAIN_INCORP:     { table: 'main', label: 'Company Incorporation Service',                   match: 'Company Incorporation Service' },
   MAIN_SEC:        { table: 'main', label: 'Corporate Secretarial Services – Yearly',          match: 'Corporate Secretarial Services' },
+  MAIN_BANK:       { table: 'main', label: 'Corporate Bank Account Opening Support',           match: 'Corporate Bank Account Opening' },
   MAIN_ADDR:       { table: 'main', label: 'Registered Office and Mailing Address – Yearly',  match: 'Registered Office and Mailing Address' },
   MAIN_ND:         { table: 'main', label: 'Local Nominee Director Service',                   match: 'Nominee Director' },
+  MAIN_ND_DEPOSIT: { table: 'main', label: 'Additional Deposit (ND sub-row)',                  match: 'Additional Deposit' },
   MAIN_EP:         { table: 'main', label: 'Employment Pass (EP) Application Service',         match: 'Employment Pass (EP) Application' },
   MAIN_POST_EP:    { table: 'main', label: 'One-Time Post-EP Changes (FOC)',                   match: 'One-Time Post-EP' },
   MAIN_CORPPASS:   { table: 'main', label: 'CorpPass Account Registration (FOC)',              match: 'CorpPass Account Registration' },
   MAIN_PDPA:       { table: 'main', label: 'PDPA Compliance — DPO Appointment (FOC)',         match: 'PDPA Compliance' },
-  MAIN_BANK:       { table: 'main', label: 'Corporate Bank Account Opening Support',           match: 'Corporate Bank Account Opening' },
-  OPT_ACCOUNTS:    { table: 'opt',  label: 'Annual Accounts Preparation',                      match: 'Annual Accounts Preparation' },
-  OPT_SECRETARIAL: { table: 'opt',  label: 'Corporate Secretarial Services – Yearly',         match: 'Corporate Secretarial Services' },
-  OPT_ADDRESS:     { table: 'opt',  label: 'Registered Office and Mailing Address – Yearly',  match: 'Registered Office and Mailing Address' },
-  OPT_AR_GOV:      { table: 'opt',  label: 'Annual Return Filing & AGM',                      match: 'Annual Return Filing' },
-  OPT_UFS:         { table: 'opt',  label: 'Unaudited Financial Statements',                   match: 'Unaudited Financial Statements' },
-  OPT_CORPTAX:     { table: 'opt',  label: 'Corporate Income Tax Computation and Filing',     match: 'Corporate Income Tax' },
-  OPT_PERSONALTAX: { table: 'opt',  label: 'Personal Income Tax Filing + AIS (1 director)',   match: 'Personal Income Tax' },
-  OPT_PAYROLL:     { table: 'opt',  label: 'Payroll Administration Service (up to 2 persons)', match: 'Payroll Administration' },
-  EP_RENEW:        { table: 'ep',   label: 'Employment Pass (EP) Renewal Service',             match: 'Employment Pass (EP) Renewal' },
-  EP_DP:           { table: 'ep',   label: "Dependant's Pass (DP) Application",               match: 'Dependant' },
+  // ── Table 2 (opt) ── match strings verified against V2026.0528 template
+  OPT_ACCOUNTS:    { table: 'opt',  label: 'Accounts Preparation – Yearly',                   match: 'Accounts Preparation' },
+  OPT_SECRETARIAL: { table: 'opt',  label: 'Secretarial Services – Yearly',                   match: 'Secretarial Services' },
+  OPT_ADDRESS:     { table: 'opt',  label: 'Registered Mailing Address – Yearly',             match: 'Registered mailing Address' },
+  OPT_AR_GOV:      { table: 'opt',  label: 'Annual Return Services',                          match: 'Annual Return Services' },
+  OPT_UFS:         { table: 'opt',  label: 'Unaudit Report',                                  match: 'Unaudit Report' },
+  OPT_CORPTAX:     { table: 'opt',  label: 'Corporate Taxation',                              match: 'Corporate Taxation' },
+  OPT_PERSONALTAX: { table: 'opt',  label: 'Personal Tax Filing + AIS',                      match: 'Personal tax submission' },
+  OPT_PAYROLL:     { table: 'opt',  label: 'Payroll Service',                                 match: 'Payroll service' },
+  // ── Table 3 (ep) ── match strings verified against V2026.0528 template
+  EP_RENEW:        { table: 'ep',   label: 'EP Renewal Service',                              match: 'EP renewal service' },
+  EP_DP:           { table: 'ep',   label: "DP Application",                                  match: 'DP Application' },
   EP_LOC:          { table: 'ep',   label: 'Letter of Consent (LOC) Application',             match: 'Letter of Consent' },
-  EP_SDL:          { table: 'ep',   label: 'Monthly Skills Development Levy (SDL)',            match: 'Skills Development Levy' },
+  EP_SDL:          { table: 'ep',   label: 'EP Monthly SDL',                                  match: 'SDL' },
 }
 
 export const DEFAULT_MAPPING: Record<string, string[]> = {
@@ -332,7 +334,7 @@ export const DEFAULT_MAPPING: Record<string, string[]> = {
   SECRETARIAL: ['MAIN_SEC', 'OPT_SECRETARIAL'],
   BANK:        ['MAIN_BANK'],
   ADDRESS:     ['MAIN_ADDR', 'OPT_ADDRESS'],
-  ND:          ['MAIN_ND'],
+  ND:          ['MAIN_ND', 'MAIN_ND_DEPOSIT'],
   EP:          ['MAIN_EP', 'MAIN_POST_EP', 'EP_SDL'],
   CORPPASS:    ['MAIN_CORPPASS'],
   AR:          ['OPT_AR_GOV'],
