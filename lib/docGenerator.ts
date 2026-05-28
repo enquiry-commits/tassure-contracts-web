@@ -300,6 +300,35 @@ function processMainTable(
     INCORP: 900, SECRETARIAL: 700, ADDRESS: 360, ND: 3000, EP: 4000, BANK: 1000,
   }
 
+  // Find heading immediately before tbl — needed for both page-break insertion and removal.
+  const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+    .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+  const tblIdx = bodyKids.indexOf(tbl)
+  let headingBeforeTbl: Element | null = null
+  for (let i = tblIdx - 1; i >= 0; i--) {
+    if (bodyKids[i].localName === 'p') { headingBeforeTbl = bodyKids[i]; break }
+  }
+
+  // Remove table + heading only when no main-table service is selected at all.
+  // (Do NOT use newTotal === 0 — F.O.C. services are selected but contribute 0 to total.)
+  const anyMainSelected = SERVICES.some(s => s.table === 'main' && sel.has(s.key))
+  if (!anyMainSelected) {
+    tbl.parentNode?.removeChild(tbl)
+    headingBeforeTbl?.parentNode?.removeChild(headingBeforeTbl)
+    return
+  }
+
+  // Insert page break before heading so heading + table always start on a new page.
+  const pbInsertBefore = headingBeforeTbl ?? tbl
+  const pbPara = xmlDoc.createElement('w:p')
+  const pbRun = xmlDoc.createElement('w:r')
+  const pbBr = xmlDoc.createElement('w:br')
+  pbBr.setAttribute('w:type', 'page')
+  pbRun.appendChild(pbBr)
+  pbPara.appendChild(pbRun)
+  body.insertBefore(pbPara, pbInsertBefore)
+
+  // Calculate total (F.O.C. services excluded — shown in their cell but not summed).
   let newTotal = 0
   for (const [k, v] of Object.entries(MAIN_FEES)) {
     if (sel.has(k) && !focServicesSet.has(k)) newTotal += feeOv[k] ?? v
@@ -313,35 +342,6 @@ function processMainTable(
 
   const ndDeposit = feeOv['ND_DEPOSIT']
   if (ndDeposit && sel.has('ND') && !focServicesSet.has('ND')) newTotal += ndDeposit
-
-  if (newTotal === 0) {
-    tbl.parentNode?.removeChild(tbl)
-    for (const p of directChildren(body, 'p')) {
-      if (paraText(p).includes('Related Service Fees')) {
-        p.parentNode?.removeChild(p)
-        break
-      }
-    }
-    return
-  }
-
-  // Insert page break so the heading + table always start on a new page.
-  // Find the last <w:p> immediately before tbl (that's the "Company Incorporation..." heading).
-  const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
-    .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
-  const tblIdx = bodyKids.indexOf(tbl)
-  let headingBeforeTbl: Element | null = null
-  for (let i = tblIdx - 1; i >= 0; i--) {
-    if (bodyKids[i].localName === 'p') { headingBeforeTbl = bodyKids[i]; break }
-  }
-  const pbInsertBefore = headingBeforeTbl ?? tbl
-  const pbPara = xmlDoc.createElement('w:p')
-  const pbRun = xmlDoc.createElement('w:r')
-  const pbBr = xmlDoc.createElement('w:br')
-  pbBr.setAttribute('w:type', 'page')
-  pbRun.appendChild(pbBr)
-  pbPara.appendChild(pbRun)
-  body.insertBefore(pbPara, pbInsertBefore)
 
   const rowsToRemove: Element[] = []
   for (const row of directChildren(tbl, 'tr')) {
