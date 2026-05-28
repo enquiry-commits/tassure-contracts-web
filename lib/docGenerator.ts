@@ -123,14 +123,26 @@ function updateCcCell(tc: Element, amount: number): void {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setFeeCellFoc(tc: Element, xmlDoc: any): void {
   const existingParas = directChildren(tc, 'p')
-  const template = existingParas.length > 0 ? existingParas[0].cloneNode(true) as Element : null
+  const templatePara = existingParas.length > 0 ? existingParas[0].cloneNode(true) as Element : null
+  // Grab a template run so we can clone its w:rPr (font settings) for each new line.
+  const templateRuns = templatePara ? allDescendants(templatePara, 'r') : []
+  const templateRun = templateRuns.length > 0 ? templateRuns[0] : null
+
   for (const p of existingParas) p.parentNode?.removeChild(p)
 
   const lines = ['F.O.C.', 'Included in package', '不另收费', '(含在报价配套内)']
   for (const line of lines) {
-    const newPara = template ? template.cloneNode(true) as Element : xmlDoc.createElement('w:p')
-    for (const r of allDescendants(newPara, 'r')) r.parentNode?.removeChild(r)
-    const run = xmlDoc.createElement('w:r')
+    const newPara = templatePara ? templatePara.cloneNode(true) as Element : xmlDoc.createElement('w:p')
+    // Remove all existing runs from the clone; keep w:pPr intact.
+    for (const r of directChildren(newPara, 'r')) r.parentNode?.removeChild(r)
+
+    // Clone a template run to inherit w:rPr (fonts, size, colour) — prevents Word
+    // from guessing a wrong East-Asian font (e.g. Korean) for CJK characters.
+    const run = templateRun
+      ? (templateRun.cloneNode(true) as Element)
+      : xmlDoc.createElement('w:r')
+    // Clear any existing text nodes inside the cloned run, then set new text.
+    for (const t of allDescendants(run, 't')) t.parentNode?.removeChild(t)
     const t = xmlDoc.createElement('w:t')
     t.setAttribute('xml:space', 'preserve')
     t.textContent = line
