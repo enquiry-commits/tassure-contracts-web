@@ -239,7 +239,7 @@ export const SERVICES: Service[] = [
     key: 'PASSRENEWAL', cat: 'table3', num: 17,
     en: 'EP Renewal Service', cn: 'EP 续约（每2年一次）',
     fee: 1800, fee_type: 'onetime', fee_str: 'SGD 1,800.00', fee_note: 'Inclusive of Government fee / 含政府费用',
-    default: false, content_type: 'paras',
+    default: true, content_type: 'paras',
     content: [
       ['Work Pass Renewal Service refers to administrative assistance provided for the renewal of work passes issued by the Ministry of Manpower ("MOM"), including Employment Pass ("EP"), S Pass, and Dependant\'s Pass ("DP"), where applicable.', '工作准证续签服务是指协助办理由新加坡人力部（MOM）签发之工作准证续签的行政支持服务，包括就业准证（EP）、S Pass及家属准证（DP）等（如适用）。'],
       ['assist the Company and/or applicant with the renewal process of the relevant work pass, including review and preparation of supporting documents, eligibility assessment and advisory, submission of renewal application to MOM, liaison with relevant authorities, submission of additional documents where required, and administrative support until approval and receipt of the renewed pass card.', '服务提供方将协助公司及/或申请人办理相关工作准证续签程序，包括审核及准备相关申请文件、资格评估及咨询、向MOM提交续签申请、与相关政府机构沟通、在需要时提交补充文件，并提供行政支持直至续签获批及领取新准证卡。'],
@@ -251,7 +251,7 @@ export const SERVICES: Service[] = [
     key: 'DP', cat: 'table3', num: 18,
     en: 'DP Application', cn: '家属准证申请',
     fee: 800, fee_type: 'per_person', fee_str: 'SGD 800.00', fee_note: 'Per applicant / 每位',
-    default: false, content_type: 'paras',
+    default: true, content_type: 'paras',
     content: [
       ["Dependant's Pass (\"DP\") refers to a pass issued by the Ministry of Manpower (\"MOM\") to eligible family members of Employment Pass or S Pass holders residing in Singapore.", '家属准证（"DP"）是由新加坡人力部（"MOM"）签发予EP或S Pass持有人符合资格之家属于新加坡居留的准证。'],
       ['assist the Company and/or applicant with the DP application process, including review and preparation of supporting documents, submission of DP application to MOM, liaison with relevant authorities, submission of additional documents where required, and administrative support until issuance of the In-Principle Approval ("IPA") letter and receipt of the DP card.', '服务提供方将协助公司及/或申请人办理DP申请程序，包括审核及准备相关申请文件、向MOM提交DP申请、与相关政府机构沟通、在需要时提交补充文件，并提供行政支持直至获得原则性批准函（IPA）及领取DP准证卡。'],
@@ -263,7 +263,7 @@ export const SERVICES: Service[] = [
     key: 'LOC', cat: 'table3', num: 19,
     en: 'Letter of Consent (LOC) Application', cn: '工作许可同意书（LOC）申请',
     fee: 200, fee_type: 'per_person', fee_str: 'SGD 200.00', fee_note: 'Per applicant / 每位',
-    default: false, content_type: 'paras',
+    default: true, content_type: 'paras',
     content: [
       ['Letter of Consent ("LOC") for Secondary Directorship refers to the formal authorization granted by the Ministry of Manpower ("MOM") allowing an Employment Pass ("EP") holder to be appointed as a director in a related or investment-linked entity.', '兼任董事工作许可同意书（"LOC"）是指由新加坡人力部（"MOM"）签发的正式授权，允许就业准证（"EP"）持有人在关联公司或具有投资关系的实体中担任董事职务。'],
       ['assist the Company and/or applicant with the LOC application process, including assessment of corporate nexus and eligibility, review and preparation of statutory supporting documents, submission of the LOC application to MOM, liaison with relevant authorities for technical clarifications, and administrative support until the formal issuance of the LOC.', '服务提供方将协助公司及/或申请人办理LOC申请程序，包括评估公司关联性及申请资格、审核及准备法定证明文件、向MOM提交LOC申请、就技术性查询与相关政府机构沟通，并提供行政支持直至LOC正式签发。'],
@@ -275,7 +275,7 @@ export const SERVICES: Service[] = [
     key: 'EP_SDL', cat: 'table3', num: 20,
     en: 'EP Monthly SDL', cn: '技能发展津贴',
     fee: 135, fee_type: 'yearly', fee_str: 'SGD 135.00', fee_note: 'SGD 11.25/month × 12 / 每月新币11.25',
-    default: false, content_type: 'bullets',
+    default: true, content_type: 'bullets',
     content: [],
     table: 'ep',
     table_desc: [],

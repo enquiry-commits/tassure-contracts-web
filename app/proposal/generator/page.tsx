@@ -171,7 +171,7 @@ function GeneratePageContent() {
       const dep = parseFee(feeValues['ND_DEPOSIT'] ?? '0')
       if (dep > 0) mainTotal += dep
     }
-    return { mainTotal, optTotal, epTotal, grand: mainTotal + optTotal + epTotal }
+    return { mainTotal, optTotal, epTotal, grand: mainTotal + optTotal }
   })()
 
   const toggleService = useCallback((key: string) => {
@@ -499,7 +499,7 @@ function GeneratePageContent() {
       {/* Popup */}
       {showPopup && (
         <SelectedServicesPopup
-          services={SERVICES.filter(s => selected.has(s.key))}
+          services={SERVICES.filter(s => selected.has(s.key) && s.table !== 'ep')}
           feeValues={feeValues}
           focModes={focModes}
           quoteModes={quoteModes}

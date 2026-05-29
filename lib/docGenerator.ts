@@ -203,6 +203,36 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
   }
 }
 
+// ── update Table 1 total cell ─────────────────────────────────────────────────
+// The template splits "12,960.00" across many single-char runs.
+// Collect all leading digit/comma/period runs, replace the first with the new
+// total, and remove the rest. Leaves the "(Including secure deposit…)" note intact.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function updateMainTableTotalCell(tc: Element, amount: number, xmlDoc: any): void {
+  const runs = allDescendants(tc, 'r')
+  const numberIdxs: number[] = []
+  for (let i = 0; i < runs.length; i++) {
+    const txt = allDescendants(runs[i], 't').map(t => t.textContent ?? '').join('')
+    if (txt === '') continue  // blank / break run — skip but don't stop
+    if (/^[\d,.]+$/.test(txt)) {
+      numberIdxs.push(i)
+    } else {
+      break  // hit non-numeric text (e.g. "(") — stop collecting
+    }
+  }
+  if (numberIdxs.length === 0) { updateFeeCell(tc, amount); return }
+
+  // Replace first number run with the new total string
+  const firstRun = runs[numberIdxs[0]]
+  for (const t of allDescendants(firstRun, 't')) t.parentNode?.removeChild(t)
+  const newT = xmlDoc.createElement('w:t')
+  newT.setAttribute('xml:space', 'preserve')
+  newT.textContent = fmtNum(amount)
+  firstRun.appendChild(newT)
+  // Remove the remaining number fragment runs
+  for (let i = 1; i < numberIdxs.length; i++) runs[numberIdxs[i]].parentNode?.removeChild(runs[numberIdxs[i]])
+}
+
 // ── override cell text (keeps cell/para properties, replaces runs) ────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -435,7 +465,7 @@ function processMainTable(
   if (finalRows.length > 0) {
     const lastRow = finalRows[finalRows.length - 1]
     const lastCells = directChildren(lastRow, 'tc')
-    if (lastCells.length > 0) updateFeeCell(lastCells[lastCells.length - 1], newTotal)
+    if (lastCells.length > 0) updateMainTableTotalCell(lastCells[lastCells.length - 1], newTotal, xmlDoc)
   }
 }
 
