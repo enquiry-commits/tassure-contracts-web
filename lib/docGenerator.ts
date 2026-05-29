@@ -73,9 +73,10 @@ function rowIdForCell(text: string, table: string): string | null {
 function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: Record<string, string[]>): boolean {
   const text = cells.map(c => cellText(c)).join(' ')
   if (text.includes('Service Scope') || text.includes('Total')) return true
-  if (table === 'main' && text.includes('Corporate Consultation Support')) return true
   const rid = rowIdForCell(text, table)
-  if (rid === null) return true
+  if (rid === null) return true  // unknown rows always kept (e.g. Corporate Consultation Support)
+  // These F.O.C. rows are always shown in the main table regardless of service selection.
+  if (table === 'main' && (rid === 'MAIN_POST_EP' || rid === 'MAIN_CORPPASS' || rid === 'MAIN_PDPA')) return true
   return [...sel].some(k => (mapping[k] ?? []).includes(rid))
 }
 
@@ -85,21 +86,24 @@ function findRowId(cells: Element[], table: string): string | null {
   return rowIdForCell(text, table)
 }
 
+function fmtNum(n: number): string {
+  return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+}
+
 function updateFeeCell(tc: Element, amount: number): void {
-  const newText = fmtSGD(amount)
+  const num = fmtNum(amount)
   for (const run of allDescendants(tc, 'r')) {
     for (const t of allDescendants(run, 't')) {
       const txt = t.textContent ?? ''
       if (/SGD\s+[\d,]+\.?\d*/.test(txt)) {
-        t.textContent = txt.replace(/SGD\s+[\d,]+\.?\d*/, newText)
+        t.textContent = txt.replace(/SGD\s+[\d,]+\.?\d*/, fmtSGD(amount))
         return
       }
-      if (txt.includes('F.O.C.')) {
-        t.textContent = txt.replace('F.O.C.', newText)
-        return
-      }
-      if (txt.includes('On Quote')) {
-        t.textContent = txt.replace('On Quote', newText)
+      if (txt.includes('F.O.C.')) { t.textContent = txt.replace('F.O.C.', fmtSGD(amount)); return }
+      if (txt.includes('On Quote')) { t.textContent = txt.replace('On Quote', fmtSGD(amount)); return }
+      // New template uses plain numbers like "900.00", "3,000.00", "12,960.00(Including...)"
+      if (/[\d,]+\.\d+/.test(txt)) {
+        t.textContent = txt.replace(/[\d,]+\.\d+/, num)
         return
       }
     }
@@ -199,44 +203,125 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
   }
 }
 
+// ── override cell text (keeps cell/para properties, replaces runs) ────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function overrideFirstParaText(tc: Element, text: string, xmlDoc: any): void {
+  const paras = directChildren(tc, 'p')
+  let para = paras[0]
+  if (!para) { para = xmlDoc.createElement('w:p'); tc.appendChild(para) }
+  for (const r of directChildren(para, 'r')) r.parentNode?.removeChild(r)
+  for (let i = 1; i < paras.length; i++) paras[i].parentNode?.removeChild(paras[i])
+  const run = xmlDoc.createElement('w:r')
+  const t = xmlDoc.createElement('w:t')
+  t.setAttribute('xml:space', 'preserve')
+  t.textContent = text
+  run.appendChild(t)
+  para.appendChild(run)
+}
+
+// ── insert extra opt rows (XBRL / AUDIT / AIS) ────────────────────────────────
+
+function insertExtraOptRows(
+  tbl: Element, sel: Set<string>, feeOv: Record<string, number>,
+  focServicesSet: Set<string>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  xmlDoc: any,
+): void {
+  const EXTRAS = [
+    { key: 'XBRL',  en: 'XBRL Reporting Service',  cn: 'XBRL报告服务' },
+    { key: 'AUDIT', en: 'Auditing Services',         cn: '公司审计' },
+    { key: 'AIS',   en: 'AIS / IR8A Services',       cn: '员工年收入申报' },
+  ]
+  const toInsert = EXTRAS.filter(e => sel.has(e.key))
+  if (toInsert.length === 0) return
+
+  const rows = directChildren(tbl, 'tr')
+  if (rows.length < 2) return
+  const totalRow = rows[rows.length - 1]
+  const templateRow = rows[rows.length - 2]
+
+  for (const extra of toInsert) {
+    const svc = SERVICES.find(s => s.key === extra.key)
+    const newRow = templateRow.cloneNode(true) as Element
+    const cells = directChildren(newRow, 'tc')
+    if (cells.length < 2) continue
+
+    // Mark number cell with a digit so renumberTableRows picks it up
+    for (const t of allDescendants(cells[0], 't')) {
+      if (/^\d+$/.test((t.textContent ?? '').trim())) { t.textContent = '99'; break }
+    }
+
+    // Service name cell
+    overrideFirstParaText(cells[1], `${extra.en}  ${extra.cn}`, xmlDoc)
+
+    // Fee cell
+    let feeText: string
+    if (focServicesSet.has(extra.key)) {
+      feeText = 'F.O.C. / 不另收费'
+    } else if (feeOv[extra.key] !== undefined) {
+      feeText = fmtSGD(feeOv[extra.key])
+    } else {
+      feeText = svc?.fee_type === 'bundled' ? 'Bundled / 含在配套内' : 'On Quote / 按实报价'
+    }
+    overrideFirstParaText(cells[cells.length - 1], feeText, xmlDoc)
+
+    tbl.insertBefore(newRow, totalRow)
+  }
+}
+
 // ── remove service sections ───────────────────────────────────────────────────
 
-const HEADING_RE = /^\s*(\d+)\.\s+\S/
+// Match strings for each service's heading paragraph in the template.
+// The new template uses Word paragraph styles (Heading1, NormalWeb, ListParagraph) — no "1." prefixes.
+const SECTION_HEADING: Record<string, string> = {
+  INCORP:      'Company Incorporation Services',
+  SECRETARIAL: 'Corporate Secretarial Services',
+  BANK:        'Company Bank Account Opening',
+  ADDRESS:     'Company Registered and Mailing Address',
+  ND:          'Nominee Director Service',
+  EP:          'Employment Pass application',
+  DP:          "Dependant's Pass",
+  AR:          'Annual Return Service',
+  XBRL:        'XBRL Reporting Service',
+  ACCOUNTS:    'Management Accounts Preparation',
+  UNAUDITEDFS: 'Unaudited Financial Statement',
+  AUDIT:       'Auditing services',
+  COMPANYTAX:  'Annual Corporate Taxation',
+  CORPPASS:    'CorpPass Registration Service',
+  AIS:         'AIS/IR8A Services',
+  PAYROLL:     'Payroll Service',
+  PERSONALTAX: 'Personal Tax',
+  PASSRENEWAL: 'Work Pass Renewal Service',
+  LOC:         'Letter of Consent',
+}
 
 function removeServiceSections(body: Element, selected: Set<string>): void {
   const paras = directChildren(body, 'p')
 
-  // Find the boundary paragraph that separates service description sections from the fee tables.
-  // The new template uses a built-in page break paragraph + "Company Incorporation..." heading
-  // instead of the old "Related Service Fees" sentinel.
+  // Find the fee section boundary: first page-break paragraph or known fee heading text.
   let feeStartIdx = paras.length
   for (let i = 0; i < paras.length; i++) {
     const text = paraText(paras[i])
-    if (text.includes('Related Service Fees') || text.includes('Company Incorporation and First-Year Service Fees')) {
-      feeStartIdx = i
-      break
+    if (text.includes('Company Incorporation and First-Year Service Fees') || text.includes('Related Service Fees')) {
+      feeStartIdx = i; break
     }
-    // The template has a <w:br type="page"/> paragraph right before the fee heading — treat it as the boundary.
     const hasPageBreak = allDescendants(paras[i], 'br').some(br => (br as Element).getAttribute('w:type') === 'page')
-    if (hasPageBreak) {
-      feeStartIdx = i
-      break
-    }
+    if (hasPageBreak) { feeStartIdx = i; break }
   }
 
-  const headings: [number, number][] = []
+  // Detect service heading paragraphs in document order using known heading phrases.
+  const headings: [string, number][] = []
   for (let i = 0; i < feeStartIdx; i++) {
-    const m = paraText(paras[i]).match(HEADING_RE)
-    if (m) {
-      const n = parseInt(m[1])
-      if (n >= 1 && n <= TEMPLATE_ORDER.length) headings.push([n, i])
+    const text = paraText(paras[i])
+    for (const [svcKey, phrase] of Object.entries(SECTION_HEADING)) {
+      if (text.includes(phrase)) { headings.push([svcKey, i]); break }
     }
   }
 
   const toDelete: Element[] = []
   for (let hi = 0; hi < headings.length; hi++) {
-    const [n, startI] = headings[hi]
-    const svcKey = TEMPLATE_ORDER[n - 1]
+    const [svcKey, startI] = headings[hi]
     if (!selected.has(svcKey)) {
       const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
       for (let j = startI; j < endI; j++) toDelete.push(paras[j])
@@ -245,70 +330,28 @@ function removeServiceSections(body: Element, selected: Set<string>): void {
   for (const elem of toDelete) elem.parentNode?.removeChild(elem)
 }
 
-function renumberHeadings(body: Element): void {
+// ── renumber table rows ───────────────────────────────────────────────────────
+
+function renumberTableRows(tbl: Element): void {
   let counter = 1
-  for (const p of directChildren(body, 'p')) {
-    const text = paraText(p)
-    const m = text.match(HEADING_RE)
-    if (m) {
-      const n = parseInt(m[1])
-      if (n >= 1 && n <= TEMPLATE_ORDER.length) {
-        if (n !== counter) {
-          const runs = allDescendants(p, 'r')
-          if (runs.length > 0) {
-            const ts = allDescendants(runs[0], 't')
-            if (ts.length > 0) {
-              ts[0].textContent = (ts[0].textContent ?? '').replace(`${n}.`, `${counter}.`)
-            }
-          }
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length === 0) continue
+    const numCell = cells[0]
+    const num = cellText(numCell).trim()
+    // Only renumber cells that contain a plain integer (skip "No." header, empty cells, Total rows)
+    if (/^\d+$/.test(num)) {
+      for (const t of allDescendants(numCell, 't')) {
+        if (/^\d+$/.test((t.textContent ?? '').trim())) {
+          t.textContent = String(counter++)
+          break
         }
-        counter++
       }
     }
   }
 }
 
 // ── process main table ────────────────────────────────────────────────────────
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function addNdDepositRow(tbl: Element, depositFee: number, xmlDoc: any): void {
-  let ndTr: Element | null = null
-  for (const tr of directChildren(tbl, 'tr')) {
-    const cells = directChildren(tr, 'tc')
-    if (cells.length > 0 && cells.some(c => cellText(c).includes('Nominee Director'))) {
-      ndTr = tr
-      break
-    }
-  }
-  if (!ndTr) return
-
-  const newTr = ndTr.cloneNode(true) as Element
-  const tcs = allDescendants(newTr, 'tc')
-  if (tcs.length === 0) return
-
-  function setCell(tc: Element, text: string) {
-    for (const p of allDescendants(tc, 'p')) {
-      for (const r of allDescendants(p, 'r')) {
-        for (const t of allDescendants(r, 't')) t.textContent = ''
-      }
-    }
-    const firstPara = directChildren(tc, 'p')[0]
-    if (!firstPara) return
-    const runs = directChildren(firstPara, 'r')
-    if (runs.length === 0) return
-    const ts = directChildren(runs[0], 't')
-    if (ts.length === 0) return
-    ts[0].textContent = text
-    ts[0].setAttribute('xml:space', 'preserve')
-  }
-
-  setCell(tcs[0], 'Additional Deposit  另付押金')
-  if (tcs.length > 2) {
-    setCell(tcs[1], 'Security deposit refundable upon Nominee Director resignation  押金于挂名董事辞任后退还')
-  }
-  setCell(tcs[tcs.length - 1], fmtSGD(depositFee))
-  ndTr.parentNode!.insertBefore(newTr, ndTr.nextSibling)
-}
 
 function processMainTable(
   body: Element, tbl: Element,
@@ -355,8 +398,8 @@ function processMainTable(
     }
   }
 
-  const ndDeposit = feeOv['ND_DEPOSIT']
-  if (ndDeposit && sel.has('ND') && !focServicesSet.has('ND')) newTotal += ndDeposit
+  // Deposit is always 3000 (or override) when ND is selected — template sub-row is kept via mapping.
+  if (sel.has('ND') && !focServicesSet.has('ND')) newTotal += feeOv['ND_DEPOSIT'] ?? 3000
 
   const rowsToRemove: Element[] = []
   for (const row of directChildren(tbl, 'tr')) {
@@ -370,7 +413,11 @@ function processMainTable(
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
     const rid = findRowId(cells, 'main')
-    if (rid) {
+    if (rid === 'MAIN_ND_DEPOSIT') {
+      // Template already contains this sub-row; just update fee if overridden.
+      const depositAmt = feeOv['ND_DEPOSIT']
+      if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt)
+    } else if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
         if (focServicesSet.has(svcKey)) {
@@ -382,7 +429,7 @@ function processMainTable(
     }
   }
 
-  if (ndDeposit && sel.has('ND') && !focServicesSet.has('ND')) addNdDepositRow(tbl, ndDeposit, xmlDoc)
+  renumberTableRows(tbl)
 
   const finalRows = directChildren(tbl, 'tr')
   if (finalRows.length > 0) {
@@ -421,12 +468,36 @@ function processOptTable(
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
-  if (dataRowsKept === 0) {
+  const extraSelected = ['XBRL', 'AUDIT', 'AIS'].some(k => sel.has(k))
+  if (dataRowsKept === 0 && !extraSelected) {
     tbl.parentNode?.removeChild(tbl)
+    // Remove both the English and Chinese opt-table headings, plus the page-break paragraph before them.
     for (const p of directChildren(body, 'p')) {
       const t = paraText(p)
-      if (t.includes('Annual service fees') || t.includes('公司后期维护')) {
+      if (
+        t.includes('Indicative Fees for Ongoing') || t.includes('Annual service fees') ||
+        t.includes('公司后期维护') || t.includes('年度维护')
+      ) {
+        // Also remove the immediately preceding page-break paragraph if present.
+        const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+          .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+        const idx = bodyKids.indexOf(p)
+        if (idx > 0) {
+          const prev = bodyKids[idx - 1]
+          if (prev.localName === 'p' && allDescendants(prev, 'br').some(br => (br as Element).getAttribute('w:type') === 'page')) {
+            prev.parentNode?.removeChild(prev)
+          }
+        }
         p.parentNode?.removeChild(p)
+        // Remove the sibling heading paragraph immediately after (Chinese or English counterpart).
+        const refreshedKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+          .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+        const nextIdx = refreshedKids.findIndex(n => {
+          if (n.localName !== 'p') return false
+          const nt = paraText(n as Element)
+          return nt.includes('公司后期维护') || nt.includes('年度维护') || nt.includes('Indicative Fees for Ongoing')
+        })
+        if (nextIdx !== -1) refreshedKids[nextIdx].parentNode?.removeChild(refreshedKids[nextIdx])
         break
       }
     }
@@ -459,6 +530,9 @@ function processOptTable(
       }
     }
   }
+
+  insertExtraOptRows(tbl, sel, feeOv, focServicesSet, xmlDoc)
+  renumberTableRows(tbl)
 
   const rows = directChildren(tbl, 'tr')
   if (rows.length > 0) {
@@ -511,6 +585,8 @@ function processEpTable(
       }
     }
   }
+
+  renumberTableRows(tbl)
 }
 
 // ── process company changes table ─────────────────────────────────────────────
@@ -575,7 +651,6 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
 
   if (input.mode === 'selected') {
     removeServiceSections(body, selected)
-    renumberHeadings(body)
   }
 
   const tables = directChildren(body, 'tbl')
