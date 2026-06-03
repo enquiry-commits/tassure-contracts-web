@@ -178,7 +178,7 @@ function GeneratePageContent() {
       if (dep > 0) mainRaw += dep
     }
     const mainTotal = Math.max(0, mainRaw - goodwillDisc)
-    return { mainTotal, optTotal, epTotal, extraTotal, grand: mainTotal + extraTotal }
+    return { mainTotal, optTotal, epTotal, extraTotal, grand: mainTotal + optTotal }
   })()
 
   const toggleService = useCallback((key: string) => {
