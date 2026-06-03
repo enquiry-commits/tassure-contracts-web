@@ -708,9 +708,12 @@ function ServiceRow({
   rowBg, showNdDeposit,
 }: SvcRowProps) {
   const isDiscount = svc.fee_type === 'discount'
-  const isFoc = svc.fee_type === 'foc' || svc.fee_type === 'bundled'
-  const isQuote = svc.fee_type === 'quote'
-  const isNumeric = !isDiscount && !isFoc && !isQuote && svc.fee !== null
+  const isFocType = svc.fee_type === 'foc' || svc.fee_type === 'bundled'
+  const isQuoteType = svc.fee_type === 'quote'
+
+  const isFoc = isFocType && focMode === 'F.O.C.'
+  const isQuote = isQuoteType && quoteMode === 'On Quote'
+  const isNumeric = (svc.fee !== null && !isDiscount && !isQuote) && (!isFocType || focMode === 'SGD') && (!isQuoteType || quoteMode === 'SGD')
 
   const discountRowBg = isDiscount ? '#FFF5F6' : rowBg
   const discountBorder = isDiscount ? '2px solid #E8A0A8' : undefined
