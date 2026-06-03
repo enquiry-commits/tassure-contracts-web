@@ -1107,9 +1107,9 @@ function processEpTable(
       // Delete all paragraphs
       for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
 
-      // EN: Microsoft YaHei 10pt
+      // EN: Microsoft YaHei 9pt
       const p0 = xmlDoc.createElement('w:p')
-      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
+      p0.appendChild(makeCalibriRun('DP renewal service', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
       if (descTcPr) {
         descCell.insertBefore(p0, descTcPr.nextSibling)
       } else {
