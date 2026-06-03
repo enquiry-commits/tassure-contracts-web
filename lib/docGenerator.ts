@@ -1103,17 +1103,27 @@ function processEpTable(
     // Format description cell (cells[1]): Microsoft YaHei
     if (cells.length > 1) {
       const descCell = cells[1]
+      let descTcPr = directChildren(descCell, 'tcPr')[0]
+      // Delete all paragraphs
       for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
 
       // EN: Microsoft YaHei 10pt
       const p0 = xmlDoc.createElement('w:p')
       p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
-      descCell.appendChild(p0)
+      if (descTcPr) {
+        descCell.insertBefore(p0, descTcPr.nextSibling)
+      } else {
+        descCell.appendChild(p0)
+      }
 
       // CN: Microsoft YaHei 9pt
       const p1 = xmlDoc.createElement('w:p')
       p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
-      descCell.appendChild(p1)
+      if (descTcPr) {
+        descCell.insertBefore(p1, p0.nextSibling || descTcPr.nextSibling)
+      } else {
+        descCell.appendChild(p1)
+      }
     }
 
     // Format fee cell with mixed fonts
