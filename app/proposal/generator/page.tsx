@@ -709,11 +709,11 @@ function ServiceRow({
 }: SvcRowProps) {
   const isDiscount = svc.fee_type === 'discount'
   const isFocType = svc.fee_type === 'foc' || svc.fee_type === 'bundled'
-  const isQuoteType = svc.fee_type === 'quote'
+  const isQuote = svc.fee_type === 'quote'
 
   const isFoc = isFocType && focMode === 'F.O.C.'
-  const isQuote = isQuoteType && quoteMode === 'On Quote'
-  const isNumeric = (svc.fee !== null && !isDiscount && !isQuote) && (!isFocType || focMode === 'SGD') && (!isQuoteType || quoteMode === 'SGD')
+  const isNumericFoc = isFocType && focMode === 'SGD'
+  const isNumeric = !isDiscount && !isFocType && !isQuote && svc.fee !== null
 
   const discountRowBg = isDiscount ? '#FFF5F6' : rowBg
   const discountBorder = isDiscount ? '2px solid #E8A0A8' : undefined
@@ -761,7 +761,7 @@ function ServiceRow({
               onValueChange={onFeeChange}
             />
           )}
-          {isNumeric && (
+          {(isNumeric || isNumericFoc) && (
             <NumericFocBadge
               mode={focMode ?? 'SGD'}
               value={feeValue}
