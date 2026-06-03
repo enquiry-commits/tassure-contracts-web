@@ -730,15 +730,17 @@ function processMainTable(
       const cells = directChildren(newRow, 'tc')
 
       if (['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC'].includes(svcKey)) {
-        // Format description cell: Microsoft YaHei 9pt for both EN and CN
+        // Format description cell: EN=Calibri 10pt, CN=Microsoft YaHei 9pt
         if (cells.length > 1) {
           const descCell = cells[1]
           for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
 
+          // EN: Calibri 10pt
           const p0 = xmlDoc.createElement('w:p')
-          p0.appendChild(makeCalibriRun(descEN, '18', xmlDoc, 'Microsoft YaHei'))
+          p0.appendChild(makeCalibriRun(descEN, '20', xmlDoc, 'Calibri'))
           descCell.appendChild(p0)
 
+          // CN: Microsoft YaHei 9pt
           if (descCN) {
             const p1 = xmlDoc.createElement('w:p')
             p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei'))
