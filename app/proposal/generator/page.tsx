@@ -868,7 +868,7 @@ function DiscountBadge({ value, onChange }: { value: string; onChange: (v: strin
 }
 
 function NumericBadge({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const numVal = parseInt(value.split('.')[0], 10) || 0
+  const numVal = parseInt(value.split('.')[0].replace(/,/g, ''), 10) || 0
   const displayVal = numVal.toLocaleString('en-US')
 
   return (
