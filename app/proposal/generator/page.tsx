@@ -842,10 +842,23 @@ function QuoteBadge({ mode, value, onModeChange, onValueChange }: {
           <span className="text-xs font-bold text-[#1A3F6F]">SGD</span>
           <input
             type="text"
-            value={value}
-            onChange={e => onValueChange(e.target.value)}
-            className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
+            value={(parseInt(value.split('.')[0].replace(/,/g, ''), 10) || 0).toLocaleString('en-US')}
+            onChange={e => {
+              const rawNum = e.target.value.replace(/,/g, '')
+              if (rawNum === '' || /^\d+$/.test(rawNum)) {
+                onValueChange(rawNum ? `${rawNum}.00` : '0.00')
+              }
+            }}
+            onKeyDown={e => {
+              const key = e.key
+              const isNumber = /^\d$/.test(key)
+              const isDelete = key === 'Backspace' || key === 'Delete'
+              const isNav = ['ArrowLeft', 'ArrowRight', 'Tab'].includes(key)
+              if (!isNumber && !isDelete && !isNav && key !== 'Control' && key !== 'Meta' && key !== 'Shift') e.preventDefault()
+            }}
+            className="w-16 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
           />
+          <span className="text-xs font-bold text-[#1A3F6F]">.00</span>
         </div>
       )}
     </div>
@@ -880,7 +893,7 @@ function NumericBadge({ value, onChange }: { value: string; onChange: (v: string
         onChange={e => {
           const rawNum = e.target.value.replace(/,/g, '')
           if (rawNum === '' || /^\d+$/.test(rawNum)) {
-            onChange(rawNum ? `${rawNum}.00` : '')
+            onChange(rawNum ? `${rawNum}.00` : '0.00')
           }
         }}
         onKeyDown={e => {
@@ -919,11 +932,11 @@ function NumericFocBadge({ mode, value, onModeChange, onValueChange }: {
           <span className="text-xs font-bold text-[#1A3F6F]">SGD</span>
           <input
             type="text"
-            value={(parseInt(value.split('.')[0], 10) || 0).toLocaleString('en-US')}
+            value={(parseInt(value.split('.')[0].replace(/,/g, ''), 10) || 0).toLocaleString('en-US')}
             onChange={e => {
               const rawNum = e.target.value.replace(/,/g, '')
               if (rawNum === '' || /^\d+$/.test(rawNum)) {
-                onValueChange(rawNum ? `${rawNum}.00` : '')
+                onValueChange(rawNum ? `${rawNum}.00` : '0.00')
               }
             }}
             onKeyDown={e => {
