@@ -725,6 +725,68 @@ function processMainTable(
       if (!sel.has(svcKey)) continue
       const rowNum = numPlaceholder ? String(dynSeq++) : ''
       const newRow = createMainTableRow(rowNum, descEN, descCN, feeLines, refRow, xmlDoc)
+
+      // Format special services with Microsoft YaHei for description and mixed fonts for fee
+      const cells = directChildren(newRow, 'tc')
+
+      if (['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC'].includes(svcKey)) {
+        // Format description cell: Microsoft YaHei 9pt for both EN and CN
+        if (cells.length > 1) {
+          const descCell = cells[1]
+          for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
+
+          const p0 = xmlDoc.createElement('w:p')
+          p0.appendChild(makeCalibriRun(descEN, '18', xmlDoc, 'Microsoft YaHei'))
+          descCell.appendChild(p0)
+
+          if (descCN) {
+            const p1 = xmlDoc.createElement('w:p')
+            p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei'))
+            descCell.appendChild(p1)
+          }
+        }
+
+        // Format fee cell: mixed Calibri (EN/numbers) and YaHei (CN)
+        if (cells.length > 2) {
+          const feeCell = cells[2]
+          for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
+
+          // Set cell vertical alignment to top
+          let tcPr = directChildren(feeCell, 'tcPr')[0]
+          if (!tcPr) {
+            tcPr = xmlDoc.createElement('w:tcPr')
+            feeCell.insertBefore(tcPr, feeCell.firstChild)
+          }
+          for (const va of directChildren(tcPr, 'vAlign')) tcPr.removeChild(va)
+          const vAlign = xmlDoc.createElement('w:vAlign')
+          vAlign.setAttribute('w:val', 'top')
+          tcPr.appendChild(vAlign)
+
+          for (let i = 0; i < feeLines.length; i++) {
+            const p = xmlDoc.createElement('w:p')
+            const pPr = xmlDoc.createElement('w:pPr')
+            const jc = xmlDoc.createElement('w:jc')
+            jc.setAttribute('w:val', 'left')
+            pPr.appendChild(jc)
+            p.appendChild(pPr)
+
+            const line = feeLines[i]
+            // Split by Chinese characters to apply different fonts
+            const parts = line.split(/(?<=[^a-zA-Z0-9\/\-\(\) ])|(?=[^a-zA-Z0-9\/\-\(\) ])/)
+            for (const part of parts) {
+              if (/[^\x00-\x7F]/.test(part)) {
+                // Contains non-ASCII (Chinese)
+                p.appendChild(makeCalibriRun(part, '18', xmlDoc, 'Microsoft YaHei'))
+              } else {
+                // ASCII (English, numbers, symbols)
+                p.appendChild(makeCalibriRun(part, '20', xmlDoc, 'Calibri'))
+              }
+            }
+            feeCell.appendChild(p)
+          }
+        }
+      }
+
       tbl.insertBefore(newRow, totalRowEl)
     }
   }
