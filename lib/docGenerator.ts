@@ -1081,9 +1081,9 @@ function processEpTable(
       const descCell = cells[1]
       for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
 
-      // EN: Calibri 10pt
+      // EN: Microsoft YaHei 10pt
       const p0 = xmlDoc.createElement('w:p')
-      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Calibri'))
+      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei'))
       descCell.appendChild(p0)
 
       // CN: Microsoft YaHei 9pt
