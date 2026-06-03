@@ -1154,7 +1154,7 @@ function processEpTable(
       const dpAmount = fmtNum(feeOv['DP_RENEW'] ?? 600)
       p1.appendChild(makeCalibriRun(dpAmount + '/person ', '20', xmlDoc, 'Calibri'))
       p1.appendChild(makeCalibriRun('每位', '18', xmlDoc, 'Microsoft YaHei'))
-      feeCell.appendChild(p1)
+      feeCell.insertBefore(p1, tcPr.nextSibling)
 
       // Line 2: "(Government fee included"
       const p2 = xmlDoc.createElement('w:p')
@@ -1164,7 +1164,7 @@ function processEpTable(
       pPr2.appendChild(jc2)
       p2.appendChild(pPr2)
       p2.appendChild(makeCalibriRun('(Government fee included', '20', xmlDoc, 'Calibri'))
-      feeCell.appendChild(p2)
+      feeCell.insertBefore(p2, p1.nextSibling)
 
       // Line 3: "含政府费用)"
       const p3 = xmlDoc.createElement('w:p')
@@ -1174,7 +1174,7 @@ function processEpTable(
       pPr3.appendChild(jc3)
       p3.appendChild(pPr3)
       p3.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
-      feeCell.appendChild(p3)
+      feeCell.insertBefore(p3, p2.nextSibling)
     }
 
     if (insertAfter.nextSibling) {
