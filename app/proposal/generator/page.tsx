@@ -915,11 +915,18 @@ function NumericFocBadge({ mode, value, onModeChange, onValueChange }: {
   onModeChange: (m: FocMode) => void; onValueChange: (v: string) => void
 }) {
   const isFoc = mode === 'F.O.C.'
+  const displayValue = value ?? '0.00'
+  const integerPart = parseInt(displayValue.split('.')[0].replace(/,/g, ''), 10) || 0
   return (
     <div className={`flex items-center rounded-lg px-2 py-1.5 gap-1.5 ${isFoc ? 'bg-[#E6F4EC]' : 'bg-[#E8F0FB]'}`}>
       <select
         value={mode}
-        onChange={e => onModeChange(e.target.value as FocMode)}
+        onChange={e => {
+          onModeChange(e.target.value as FocMode)
+          if (e.target.value === 'SGD' && !displayValue.includes('.')) {
+            onValueChange(`${integerPart}.00`)
+          }
+        }}
         className={`text-xs font-bold rounded px-1 py-0.5 border-0 cursor-pointer ${
           isFoc ? 'bg-[#2D7D4E] text-white' : 'bg-[#1A3F6F] text-white'
         }`}
@@ -932,7 +939,7 @@ function NumericFocBadge({ mode, value, onModeChange, onValueChange }: {
           <span className="text-xs font-bold text-[#1A3F6F]">SGD</span>
           <input
             type="text"
-            value={(parseInt(value.split('.')[0].replace(/,/g, ''), 10) || 0).toLocaleString('en-US')}
+            value={integerPart.toLocaleString('en-US')}
             onChange={e => {
               const rawNum = e.target.value.replace(/,/g, '')
               if (rawNum === '' || /^\d+$/.test(rawNum)) {
