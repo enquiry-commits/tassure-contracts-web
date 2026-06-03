@@ -246,17 +246,17 @@ function createMainTableRow(
 
   // Cell 2: fee lines (Calibri 10pt)
   const feeCell = cells[2]
-  // Keep tcPr at the beginning, delete all paragraphs
+  // Ensure tcPr exists and is first, then delete all paragraphs
   let tcPr = directChildren(feeCell, 'tcPr')[0]
+  if (!tcPr) {
+    tcPr = xmlDoc.createElement('w:tcPr')
+    feeCell.insertBefore(tcPr, feeCell.firstChild)
+  }
   for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
-  for (const line of feeLines) {
+  for (let i = 0; i < feeLines.length; i++) {
     const p = xmlDoc.createElement('w:p')
-    p.appendChild(makeCalibriRun(line, '20', xmlDoc, 'Calibri'))
-    if (tcPr) {
-      feeCell.insertBefore(p, tcPr.nextSibling)
-    } else {
-      feeCell.appendChild(p)
-    }
+    p.appendChild(makeCalibriRun(feeLines[i], '20', xmlDoc, 'Calibri'))
+    feeCell.insertBefore(p, tcPr.nextSibling)
   }
 
   return newRow
