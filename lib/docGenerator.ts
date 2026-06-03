@@ -104,12 +104,12 @@ function splitAtChinese(text: string): [string, string] {
 
 // Build a <w:r> with explicit Calibri font and half-point size (e.g. '20' = 10pt, '18' = 9pt)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function makeCalibriRun(text: string, szVal: string, xmlDoc: any, eastAsiaFont = 'Calibri', bold = false): Element {
+function makeCalibriRun(text: string, szVal: string, xmlDoc: any, eastAsiaFont = 'Calibri', bold = false, asciiFont = 'Calibri'): Element {
   const r = xmlDoc.createElement('w:r')
   const rPr = xmlDoc.createElement('w:rPr')
   const rFonts = xmlDoc.createElement('w:rFonts')
-  rFonts.setAttribute('w:ascii', 'Calibri')
-  rFonts.setAttribute('w:hAnsi', 'Calibri')
+  rFonts.setAttribute('w:ascii', asciiFont)
+  rFonts.setAttribute('w:hAnsi', asciiFont)
   rFonts.setAttribute('w:eastAsia', eastAsiaFont)
   rPr.appendChild(rFonts)
   if (bold) { const b = xmlDoc.createElement('w:b'); rPr.appendChild(b) }
@@ -1086,21 +1086,20 @@ function processEpTable(
 
       // EN: Microsoft YaHei 10pt
       const p0 = xmlDoc.createElement('w:p')
-      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei'))
+      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
       descCell.appendChild(p0)
 
       // CN: Microsoft YaHei 9pt
       const p1 = xmlDoc.createElement('w:p')
-      p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei'))
+      p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
       descCell.appendChild(p1)
     }
 
     // Format fee cell with mixed fonts
     if (cells.length > 2) {
       const feeCell = cells[2]
-      for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
 
-      // Set cell vertical alignment to top
+      // Set cell vertical alignment to top FIRST before deleting paragraphs
       let tcPr = directChildren(feeCell, 'tcPr')[0]
       if (!tcPr) {
         tcPr = xmlDoc.createElement('w:tcPr')
@@ -1110,6 +1109,9 @@ function processEpTable(
       const vAlign = xmlDoc.createElement('w:vAlign')
       vAlign.setAttribute('w:val', 'top')
       tcPr.appendChild(vAlign)
+
+      // Now delete all paragraphs
+      for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
 
       // Line 1: "600.00/person 每位"
       const p1 = xmlDoc.createElement('w:p')
