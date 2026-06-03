@@ -403,8 +403,22 @@ function insertExtraOptRows(
     if (cells.length < 2) continue
 
     // Mark number cell with a digit so renumberTableRows picks it up
-    for (const t of allDescendants(cells[0], 't')) {
-      if (/^\d+$/.test((t.textContent ?? '').trim())) { t.textContent = '99'; break }
+    // Also ensure center alignment
+    for (const p of directChildren(cells[0], 'p')) {
+      let pPr = directChildren(p, 'pPr')[0]
+      if (!pPr) {
+        pPr = xmlDoc.createElement('w:pPr')
+        p.insertBefore(pPr, p.firstChild)
+      }
+      let jc = directChildren(pPr, 'w:jc')[0]
+      if (!jc) {
+        jc = xmlDoc.createElement('w:jc')
+        jc.setAttribute('w:val', 'center')
+        pPr.appendChild(jc)
+      }
+      for (const t of directChildren(p, 't')) {
+        if (/^\d+$/.test((t.textContent ?? '').trim())) { t.textContent = '99'; break }
+      }
     }
 
     // --- Service name cell (cells[1]) ---
@@ -1075,6 +1089,22 @@ function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, 
     if (val === 0) continue
     if (item.row < rows.length) {
       const cells = directChildren(rows[item.row], 'tc')
+      // Center align row number in first cell
+      if (cells.length > 0) {
+        for (const p of directChildren(cells[0], 'p')) {
+          let pPr = directChildren(p, 'pPr')[0]
+          if (!pPr) {
+            pPr = xmlDoc.createElement('w:pPr')
+            p.insertBefore(pPr, p.firstChild)
+          }
+          let jc = directChildren(pPr, 'w:jc')[0]
+          if (!jc) {
+            jc = xmlDoc.createElement('w:jc')
+            jc.setAttribute('w:val', 'center')
+            pPr.appendChild(jc)
+          }
+        }
+      }
       if (cells.length > 4) updateCcCell(cells[4], val)
     }
   }
