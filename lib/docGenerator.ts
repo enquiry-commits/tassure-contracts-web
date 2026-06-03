@@ -1022,11 +1022,15 @@ function processEpTable(
       p1.appendChild(makeCalibriRun('每位', '18', xmlDoc, 'Microsoft YaHei'))
       feeCell.appendChild(p1)
 
-      // Line 2: "(Government fee included 含政府费用)"
+      // Line 2: "(Government fee included"
       const p2 = xmlDoc.createElement('w:p')
-      p2.appendChild(makeCalibriRun('(Government fee included ', '20', xmlDoc, 'Calibri'))
-      p2.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
+      p2.appendChild(makeCalibriRun('(Government fee included', '20', xmlDoc, 'Calibri'))
       feeCell.appendChild(p2)
+
+      // Line 3: "含政府费用)"
+      const p3 = xmlDoc.createElement('w:p')
+      p3.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
+      feeCell.appendChild(p3)
     }
 
     if (insertAfter.nextSibling) {
