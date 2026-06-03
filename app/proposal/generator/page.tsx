@@ -1180,19 +1180,20 @@ function SelectedServicesPopup({ services, feeValues, focModes, quoteModes, onCl
           {services.length === 0 ? (
             <div className="text-center text-gray-500 py-8">No services selected  未选择任何服务</div>
           ) : (
-            <>
-              {services.map((svc, i) => {
-                const isDisc = svc.fee_type === 'discount'
-                const fee = getEffectiveFee(svc, feeValues, focModes, quoteModes)
-                const isFocDisplay = !isDisc && fee === 0 && (focModes[svc.key] === 'F.O.C.' || svc.fee_type === 'foc' || svc.fee_type === 'bundled')
-                const feeDisplay = isDisc
-                  ? `- SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
-                  : fee > 0
-                    ? `SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
-                    : isFocDisplay ? 'F.O.C.' : svc.fee_str
-                return (
-                  <div key={svc.key}
-                    className="flex items-center rounded-lg mb-2 px-3 py-2"
+            services.map((svc, i) => {
+              const isDisc = svc.fee_type === 'discount'
+              const fee = getEffectiveFee(svc, feeValues, focModes, quoteModes)
+              const isFocDisplay = !isDisc && fee === 0 && (focModes[svc.key] === 'F.O.C.' || svc.fee_type === 'foc' || svc.fee_type === 'bundled')
+              const feeDisplay = isDisc
+                ? `- SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+                : fee > 0
+                  ? `SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+                  : isFocDisplay ? 'F.O.C.' : svc.fee_str
+              const ndDepositAmt = feeValues['ND_DEPOSIT'] ? parseFloat(feeValues['ND_DEPOSIT'].replace(/,/g, '')) : 0
+              const showNdDeposit = svc.key === 'ND' && ndDepositAmt > 0
+              return (
+                <div key={svc.key}>
+                  <div className="flex items-center rounded-lg mb-2 px-3 py-2"
                     style={{
                       backgroundColor: isDisc ? '#FFF5F6' : i % 2 === 0 ? '#FFFFFF' : '#F5F9FF',
                       border: isDisc ? '1px solid #E8A0A8' : '1px solid #D8E8F4',
@@ -1208,23 +1209,23 @@ function SelectedServicesPopup({ services, feeValues, focModes, quoteModes, onCl
                       {feeDisplay}
                     </span>
                   </div>
-                )
-              })}
-              {services.some(s => s.key === 'ND') && feeValues['ND_DEPOSIT'] && parseFloat(feeValues['ND_DEPOSIT'].replace(/,/g, '')) > 0 && (
-                <div className="flex items-center rounded-lg mb-2 px-3 py-2"
-                  style={{
-                    backgroundColor: '#EEF5FF',
-                    border: '1px solid #B8D8F0',
-                  }}>
-                  <span className="text-sm font-bold w-7 text-right mr-3 text-[#4A6F9A]">↳</span>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-[#1A1A2E]">Additional Deposit</div>
-                    <div className="text-xs text-gray-500">另付押金</div>
-                  </div>
-                  <span className="text-sm font-bold text-[#1A3F6F]">SGD {parseFloat(feeValues['ND_DEPOSIT'].replace(/,/g, '')).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</span>
+                  {showNdDeposit && (
+                    <div className="flex items-center rounded-lg mb-2 px-3 py-2"
+                      style={{
+                        backgroundColor: '#EEF5FF',
+                        border: '1px solid #B8D8F0',
+                      }}>
+                      <span className="text-sm font-bold w-7 text-right mr-3 text-[#4A6F9A]">↳</span>
+                      <div className="flex-1">
+                        <div className="text-sm font-bold text-[#1A1A2E]">Additional Deposit</div>
+                        <div className="text-xs text-gray-500">另付押金</div>
+                      </div>
+                      <span className="text-sm font-bold text-[#1A3F6F]">SGD {ndDepositAmt.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </>
+              )
+            })
           )}
         </div>
         <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
