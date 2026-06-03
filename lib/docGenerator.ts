@@ -1004,10 +1004,31 @@ function processEpTable(
       String(epDigitCount + 1),
       'DP renewal service',
       'DP 续约（每2年一次）',
-      [fmtNum(feeOv['DP_RENEW'] ?? 600) + '/person 每位', '(Government fee included 含政府费用)'],
+      [''], // placeholder, will be replaced with formatted fee
       refRow,
       xmlDoc,
     )
+
+    // Format DP renewal fee cell with mixed fonts
+    const cells = directChildren(newRow, 'tc')
+    if (cells.length > 2) {
+      const feeCell = cells[2]
+      for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
+
+      // Line 1: "600.00/person 每位"
+      const p1 = xmlDoc.createElement('w:p')
+      const dpAmount = fmtNum(feeOv['DP_RENEW'] ?? 600)
+      p1.appendChild(makeCalibriRun(dpAmount + '/person ', '20', xmlDoc, 'Calibri'))
+      p1.appendChild(makeCalibriRun('每位', '18', xmlDoc, 'Microsoft YaHei'))
+      feeCell.appendChild(p1)
+
+      // Line 2: "(Government fee included 含政府费用)"
+      const p2 = xmlDoc.createElement('w:p')
+      p2.appendChild(makeCalibriRun('(Government fee included ', '20', xmlDoc, 'Calibri'))
+      p2.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
+      feeCell.appendChild(p2)
+    }
+
     if (insertAfter.nextSibling) {
       tbl.insertBefore(newRow, insertAfter.nextSibling)
     } else {
