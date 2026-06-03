@@ -1009,8 +1009,26 @@ function processEpTable(
       xmlDoc,
     )
 
-    // Format DP renewal fee cell with mixed fonts
+    // Format DP renewal service row: description and fee cells
     const cells = directChildren(newRow, 'tc')
+
+    // Format description cell (cells[1]): Microsoft YaHei instead of Calibri
+    if (cells.length > 1) {
+      const descCell = cells[1]
+      for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
+
+      // EN: Microsoft YaHei 10pt
+      const p0 = xmlDoc.createElement('w:p')
+      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei'))
+      descCell.appendChild(p0)
+
+      // CN: Microsoft YaHei 9pt
+      const p1 = xmlDoc.createElement('w:p')
+      p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei'))
+      descCell.appendChild(p1)
+    }
+
+    // Format fee cell with mixed fonts
     if (cells.length > 2) {
       const feeCell = cells[2]
       for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
