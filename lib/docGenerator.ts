@@ -253,10 +253,16 @@ function createMainTableRow(
     feeCell.insertBefore(tcPr, feeCell.firstChild)
   }
   for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
-  for (let i = 0; i < feeLines.length; i++) {
+  let lastInserted: Element | null = null
+  for (const line of feeLines) {
     const p = xmlDoc.createElement('w:p')
-    p.appendChild(makeCalibriRun(feeLines[i], '20', xmlDoc, 'Calibri'))
-    feeCell.insertBefore(p, tcPr.nextSibling)
+    p.appendChild(makeCalibriRun(line, '20', xmlDoc, 'Calibri'))
+    if (lastInserted) {
+      feeCell.insertBefore(p, lastInserted.nextSibling)
+    } else {
+      feeCell.insertBefore(p, tcPr.nextSibling)
+    }
+    lastInserted = p
   }
 
   return newRow
