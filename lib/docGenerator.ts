@@ -140,18 +140,22 @@ function updateFeeCell(tc: Element, amount: number, xmlDoc: any): void {
     }
   }
 
-  // Second pass: combine all <w:t> elements per paragraph, replace number, then rebuild with
-  // bilingual Calibri runs — English 10pt (sz=20), Chinese 9pt (sz=18).
-  for (const para of allDescendants(tc, 'p')) {
+  // Second pass: find paragraph with number, rebuild it, delete other paragraphs
+  for (const para of directChildren(tc, 'p')) {
     const ts = allDescendants(para, 't')
     if (ts.length === 0) continue
     const combined = ts.map(t => t.textContent ?? '').join('')
     if (!/[\d,]+\.\d+/.test(combined)) continue
+    // Found the paragraph with number — rebuild it
     const newText = combined.replace(/[\d,]+\.\d+/, num).trim()
     for (const r of directChildren(para, 'r')) r.parentNode?.removeChild(r)
     const [enPart, cnPart] = splitAtChinese(newText)
     if (enPart) para.appendChild(makeCalibriRun(enPart, '20', xmlDoc))
     if (cnPart) para.appendChild(makeCalibriRun(cnPart, '18', xmlDoc, 'Microsoft YaHei'))
+    // Delete all other paragraphs
+    for (const p of directChildren(tc, 'p')) {
+      if (p !== para) p.parentNode?.removeChild(p)
+    }
     return
   }
 }
@@ -274,6 +278,12 @@ function setFeeCellFoc(tc: Element, xmlDoc: any): void {
   const pPrClone = existingParas.length > 0
     ? (directChildren(existingParas[0], 'pPr')[0]?.cloneNode(true) ?? null)
     : null
+  // Ensure tcPr exists and is first
+  let tcPr = directChildren(tc, 'tcPr')[0]
+  if (!tcPr) {
+    tcPr = xmlDoc.createElement('w:tcPr')
+    tc.insertBefore(tcPr, tc.firstChild)
+  }
   for (const p of existingParas) p.parentNode?.removeChild(p)
 
   // English lines: Calibri 10pt (sz=20); Chinese lines: YaHei 9pt (sz=18) — match content column
@@ -283,11 +293,17 @@ function setFeeCellFoc(tc: Element, xmlDoc: any): void {
     ['不另收费',             '18', 'Microsoft YaHei'],
     ['(含在报价配套内)',      '18', 'Microsoft YaHei'],
   ]
+  let lastInserted: Element | null = null
   for (const [line, szVal, font] of lines) {
     const newPara = xmlDoc.createElement('w:p')
     if (pPrClone) newPara.appendChild((pPrClone as Node).cloneNode(true))
     newPara.appendChild(makeCalibriRun(line, szVal, xmlDoc, font))
-    tc.appendChild(newPara)
+    if (lastInserted) {
+      tc.insertBefore(newPara, lastInserted.nextSibling)
+    } else {
+      tc.insertBefore(newPara, tcPr.nextSibling)
+    }
+    lastInserted = newPara
   }
 }
 
