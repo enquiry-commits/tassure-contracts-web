@@ -249,7 +249,6 @@ function createMainTableRow(
     ind.setAttribute('w:left', '141')
     pPr.appendChild(ind)
     p.appendChild(pPr)
-    console.log(`[createMainTableRow DEBUG] Added indent to fee line: ${line}`)
     p.appendChild(makeCalibriRun(line, '20', xmlDoc, 'Calibri'))
     feeCell.appendChild(p)
   }
