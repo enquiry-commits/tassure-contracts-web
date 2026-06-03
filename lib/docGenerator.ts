@@ -739,27 +739,35 @@ function processMainTable(
         // Format description cell: EN=Calibri 10pt, CN=Microsoft YaHei 9pt
         if (cells.length > 1) {
           const descCell = cells[1]
+          let descTcPr = directChildren(descCell, 'tcPr')[0]
           for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
 
           // EN: Calibri 10pt
           const p0 = xmlDoc.createElement('w:p')
-          p0.appendChild(makeCalibriRun(descEN, '20', xmlDoc, 'Calibri'))
-          descCell.appendChild(p0)
+          p0.appendChild(makeCalibriRun(descEN, '20', xmlDoc, 'Calibri', false, 'Calibri'))
+          if (descTcPr) {
+            descCell.insertBefore(p0, descTcPr.nextSibling)
+          } else {
+            descCell.appendChild(p0)
+          }
 
-          // CN: Microsoft YaHei 9pt
+          // CN: Microsoft YaHei 9pt (all fonts in this line)
           if (descCN) {
             const p1 = xmlDoc.createElement('w:p')
-            p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei'))
-            descCell.appendChild(p1)
+            p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
+            if (descTcPr) {
+              descCell.insertBefore(p1, descTcPr.nextSibling || p0.nextSibling)
+            } else {
+              descCell.appendChild(p1)
+            }
           }
         }
 
         // Format fee cell: mixed Calibri (EN/numbers) and YaHei (CN)
         if (cells.length > 2) {
           const feeCell = cells[2]
-          for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
 
-          // Set cell vertical alignment to top
+          // Set cell vertical alignment to top FIRST
           let tcPr = directChildren(feeCell, 'tcPr')[0]
           if (!tcPr) {
             tcPr = xmlDoc.createElement('w:tcPr')
@@ -769,6 +777,9 @@ function processMainTable(
           const vAlign = xmlDoc.createElement('w:vAlign')
           vAlign.setAttribute('w:val', 'top')
           tcPr.appendChild(vAlign)
+
+          // Now delete paragraphs
+          for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
 
           for (const line of feeLines) {
             const p = xmlDoc.createElement('w:p')
@@ -783,13 +794,17 @@ function processMainTable(
             for (const part of parts) {
               if (/[^\x00-\x7F]/.test(part)) {
                 // Contains non-ASCII (Chinese)
-                p.appendChild(makeCalibriRun(part, '18', xmlDoc, 'Microsoft YaHei'))
+                p.appendChild(makeCalibriRun(part, '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
               } else {
                 // ASCII (English, numbers, symbols)
-                p.appendChild(makeCalibriRun(part, '20', xmlDoc, 'Calibri'))
+                p.appendChild(makeCalibriRun(part, '20', xmlDoc, 'Calibri', false, 'Calibri'))
               }
             }
-            feeCell.appendChild(p)
+            if (tcPr) {
+              feeCell.insertBefore(p, tcPr.nextSibling || feeCell.firstChild)
+            } else {
+              feeCell.appendChild(p)
+            }
           }
         }
 
