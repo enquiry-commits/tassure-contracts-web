@@ -728,7 +728,7 @@ function processMainTable(
         numPlaceholder: '1',
         descEN: 'DP Application',
         descCN: '家属准证申请',
-        feeLines: [fmtNum(feeOv['DP_MAIN'] ?? 600) + '/person 每位', '(Government fee included 含政府费用)'],
+        feeLines: [fmtNum(feeOv['DP_MAIN'] ?? 600) + '/person 每位'],
       },
       {
         svcKey: 'LOC_MAIN',
