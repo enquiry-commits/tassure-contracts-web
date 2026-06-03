@@ -869,16 +869,31 @@ function QuoteBadge({ mode, value, onModeChange, onValueChange }: {
 }
 
 function DiscountBadge({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const normalizedValue = (value ?? '0.00').includes('.') ? value : `${value}.00`
+  const integerPart = parseInt(normalizedValue.split('.')[0].replace(/,/g, ''), 10) || 0
   return (
     <div className="flex items-center gap-1 bg-[#FFF0F2] rounded-lg px-2.5 py-1.5 border border-[#F0C0C8]">
       <span className="text-xs font-bold text-[#8B1A2A]">- SGD</span>
       <input
         type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
+        value={integerPart.toLocaleString('en-US')}
+        onChange={e => {
+          const rawNum = e.target.value.replace(/,/g, '')
+          if (rawNum === '' || /^\d+$/.test(rawNum)) {
+            onChange(rawNum ? `${rawNum}.00` : '0.00')
+          }
+        }}
+        onKeyDown={e => {
+          const key = e.key
+          const isNumber = /^\d$/.test(key)
+          const isDelete = key === 'Backspace' || key === 'Delete'
+          const isNav = ['ArrowLeft', 'ArrowRight', 'Tab'].includes(key)
+          if (!isNumber && !isDelete && !isNav && key !== 'Control' && key !== 'Meta' && key !== 'Shift') e.preventDefault()
+        }}
         className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#8B1A2A]"
         placeholder="0.00"
       />
+      <span className="text-xs font-bold text-[#8B1A2A]">.00</span>
     </div>
   )
 }
