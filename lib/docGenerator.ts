@@ -1066,8 +1066,8 @@ function processEpTable(
     }
     const newRow = createMainTableRow(
       String(epDigitCount + 1),
-      'DP renewal service',
-      'DP 续约（每2年一次）',
+      '', // Will format description separately
+      '',
       [''], // placeholder, will be replaced with formatted fee
       refRow,
       xmlDoc,
@@ -1076,14 +1076,14 @@ function processEpTable(
     // Format DP renewal service row: description and fee cells
     const cells = directChildren(newRow, 'tc')
 
-    // Format description cell (cells[1]): Microsoft YaHei instead of Calibri
+    // Format description cell (cells[1]): Microsoft YaHei
     if (cells.length > 1) {
       const descCell = cells[1]
       for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
 
-      // EN: Microsoft YaHei 10pt
+      // EN: Calibri 10pt
       const p0 = xmlDoc.createElement('w:p')
-      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Microsoft YaHei'))
+      p0.appendChild(makeCalibriRun('DP renewal service', '20', xmlDoc, 'Calibri'))
       descCell.appendChild(p0)
 
       // CN: Microsoft YaHei 9pt
