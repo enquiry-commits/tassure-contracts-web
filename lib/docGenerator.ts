@@ -218,11 +218,16 @@ function createMainTableRow(
   const trPr = directChildren(newRow, 'trPr')[0]
   if (trPr) for (const shd of directChildren(trPr, 'shd')) trPr.removeChild(shd)
 
-  // Cell 0: row number (Calibri 10pt)
+  // Cell 0: row number (Calibri 10pt) — centered
   const numCell = cells[0]
   for (const p of directChildren(numCell, 'p')) p.parentNode?.removeChild(p)
   if (numText) {
     const p = xmlDoc.createElement('w:p')
+    const pPr = xmlDoc.createElement('w:pPr')
+    const jc = xmlDoc.createElement('w:jc')
+    jc.setAttribute('w:val', 'center')
+    pPr.appendChild(jc)
+    p.appendChild(pPr)
     p.appendChild(makeCalibriRun(numText, '20', xmlDoc, 'Calibri'))
     numCell.appendChild(p)
   }
