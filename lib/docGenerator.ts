@@ -734,6 +734,19 @@ function processMainTable(
         if (!sel.has('ND')) {
           p.parentNode?.removeChild(p)
         } else {
+          // Add indent to deposit line
+          let pPr = directChildren(p, 'pPr')[0]
+          if (!pPr) {
+            pPr = xmlDoc.createElement('w:pPr')
+            p.insertBefore(pPr, p.firstChild)
+          }
+          let ind = directChildren(pPr, 'w:ind')[0]
+          if (!ind) {
+            ind = xmlDoc.createElement('w:ind')
+            ind.setAttribute('w:left', '141')
+            pPr.appendChild(ind)
+          }
+
           // Update deposit amount to reflect the actual ND_DEPOSIT override
           const depositAmt = feeOv['ND_DEPOSIT'] ?? 3000
           for (const t of allDescendants(p, 't')) {
