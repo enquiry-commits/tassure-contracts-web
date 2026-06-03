@@ -724,12 +724,12 @@ function processMainTable(
     for (const { svcKey, numPlaceholder, descEN, descCN, feeLines } of dynRows) {
       if (!sel.has(svcKey)) continue
       const rowNum = numPlaceholder ? String(dynSeq++) : ''
-      const newRow = createMainTableRow(rowNum, descEN, descCN, feeLines, refRow, xmlDoc)
-
-      // Format special services with Microsoft YaHei for description and mixed fonts for fee
-      const cells = directChildren(newRow, 'tc')
 
       if (['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC'].includes(svcKey)) {
+        // For special services, create row with empty description and fee, then format separately
+        const newRow = createMainTableRow(rowNum, '', '', [''], refRow, xmlDoc)
+        const cells = directChildren(newRow, 'tc')
+
         // Format description cell: EN=Calibri 10pt, CN=Microsoft YaHei 9pt
         if (cells.length > 1) {
           const descCell = cells[1]
@@ -764,7 +764,7 @@ function processMainTable(
           vAlign.setAttribute('w:val', 'top')
           tcPr.appendChild(vAlign)
 
-          for (let i = 0; i < feeLines.length; i++) {
+          for (const line of feeLines) {
             const p = xmlDoc.createElement('w:p')
             const pPr = xmlDoc.createElement('w:pPr')
             const jc = xmlDoc.createElement('w:jc')
@@ -772,7 +772,6 @@ function processMainTable(
             pPr.appendChild(jc)
             p.appendChild(pPr)
 
-            const line = feeLines[i]
             // Split by Chinese characters to apply different fonts
             const parts = line.split(/(?<=[^a-zA-Z0-9\/\-\(\) ])|(?=[^a-zA-Z0-9\/\-\(\) ])/)
             for (const part of parts) {
@@ -787,9 +786,13 @@ function processMainTable(
             feeCell.appendChild(p)
           }
         }
-      }
 
-      tbl.insertBefore(newRow, totalRowEl)
+        tbl.insertBefore(newRow, totalRowEl)
+      } else {
+        // For non-special services, use default formatting
+        const newRow = createMainTableRow(rowNum, descEN, descCN, feeLines, refRow, xmlDoc)
+        tbl.insertBefore(newRow, totalRowEl)
+      }
     }
   }
 
