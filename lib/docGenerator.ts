@@ -244,6 +244,12 @@ function createMainTableRow(
   for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
   for (const line of feeLines) {
     const p = xmlDoc.createElement('w:p')
+    const pPr = xmlDoc.createElement('w:pPr')
+    const ind = xmlDoc.createElement('w:ind')
+    ind.setAttribute('w:left', '141')
+    pPr.appendChild(ind)
+    p.appendChild(pPr)
+    console.log(`[createMainTableRow DEBUG] Added indent to fee line: ${line}`)
     p.appendChild(makeCalibriRun(line, '20', xmlDoc, 'Calibri'))
     feeCell.appendChild(p)
   }
@@ -268,7 +274,20 @@ function setFeeCellFoc(tc: Element, xmlDoc: any): void {
   ]
   for (const [line, szVal, font] of lines) {
     const newPara = xmlDoc.createElement('w:p')
-    if (pPrClone) newPara.appendChild((pPrClone as Node).cloneNode(true))
+    // Clone existing pPr or create new one with indent
+    const pPr = pPrClone
+      ? (pPrClone as Node).cloneNode(true) as Element
+      : xmlDoc.createElement('w:pPr')
+    // Ensure left indent is set to 141 twips (0.25 cm)
+    const existingInd = directChildren(pPr, 'ind')[0]
+    if (existingInd) {
+      existingInd.setAttribute('w:left', '141')
+    } else {
+      const ind = xmlDoc.createElement('w:ind')
+      ind.setAttribute('w:left', '141')
+      pPr.appendChild(ind)
+    }
+    newPara.appendChild(pPr)
     newPara.appendChild(makeCalibriRun(line, szVal, xmlDoc, font))
     tc.appendChild(newPara)
   }
@@ -437,6 +456,11 @@ function insertExtraOptRows(
       const existingFeeParas = directChildren(feeCell, 'p')
       for (const p of existingFeeParas) p.parentNode?.removeChild(p)
       const newFeePara = xmlDoc.createElement('w:p')
+      const pPr = xmlDoc.createElement('w:pPr')
+      const ind = xmlDoc.createElement('w:ind')
+      ind.setAttribute('w:left', '141')
+      pPr.appendChild(ind)
+      newFeePara.appendChild(pPr)
       if (hasFeeOverride) {
         newFeePara.appendChild(makeCalibriRun(fmtNum(feeOv[extra.key]), '20', xmlDoc, 'Calibri'))
       } else {
@@ -634,7 +658,17 @@ function processMainTable(
           : null
         for (const p of existingParas) p.parentNode?.removeChild(p)
         const newPara = xmlDoc.createElement('w:p')
-        if (pPrClone) newPara.appendChild((pPrClone as Node).cloneNode(true))
+        const pPr = pPrClone ? (pPrClone as Node).cloneNode(true) as Element : xmlDoc.createElement('w:pPr')
+        // Ensure left indent is set to 141 twips (0.25 cm)
+        const existingInd = directChildren(pPr, 'ind')[0]
+        if (existingInd) {
+          existingInd.setAttribute('w:left', '141')
+        } else {
+          const ind = xmlDoc.createElement('w:ind')
+          ind.setAttribute('w:left', '141')
+          pPr.appendChild(ind)
+        }
+        newPara.appendChild(pPr)
         newPara.appendChild(makeCalibriRun(fmtNum(feeOv[svcKey]), '20', xmlDoc))
         feeCell.appendChild(newPara)
       } else {
@@ -742,6 +776,20 @@ function processMainTable(
               t.textContent = txt.replace(/[\d,]+\.\d+/, fmtNum(depositAmt))
               break
             }
+          }
+          // Ensure deposit line also has left indent (0.25 cm = 141 twips)
+          let pPr = directChildren(p, 'pPr')[0]
+          if (!pPr) {
+            pPr = xmlDoc.createElement('w:pPr')
+            p.insertBefore(pPr, p.firstChild)
+          }
+          const existingInd = directChildren(pPr, 'ind')[0]
+          if (existingInd) {
+            existingInd.setAttribute('w:left', '141')
+          } else {
+            const ind = xmlDoc.createElement('w:ind')
+            ind.setAttribute('w:left', '141')
+            pPr.appendChild(ind)
           }
         }
       }
