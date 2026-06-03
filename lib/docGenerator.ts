@@ -239,7 +239,7 @@ function createMainTableRow(
     descCell.appendChild(p1)
   }
 
-  // Cell 2: fee lines (Calibri 10pt)
+  // Cell 2: fee lines (Calibri 10pt) — with left indent (0.25cm = 141 twips)
   const feeCell = cells[2]
   for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
   for (const line of feeLines) {
