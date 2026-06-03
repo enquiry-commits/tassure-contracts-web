@@ -192,34 +192,61 @@ function StatCard({ label, value, sub, accent }: {
   )
 }
 
-// ── Date Group Header ─────────────────────────────────────────────────────────
+// ── Month Group Header ────────────────────────────────────────────────────────
 
-function DateGroupHeader({ sgDate, count, colorIdx }: {
-  sgDate: string; count: number; colorIdx: number
+function MonthGroupHeader({ monthKey, count, collapsed, onToggle }: {
+  monthKey: string; count: number; collapsed: boolean; onToggle: () => void
 }) {
-  // Parse dd/mm/yyyy
-  const [dd, mm, yyyy] = sgDate.split('/')
-  const d = new Date(`${yyyy}-${mm}-${dd}`)
-  const weekday = d.toLocaleDateString('en-SG', { weekday: 'long' })
-  const dayNum = d.toLocaleDateString('en-SG', { day: 'numeric' })
+  const [yyyy, mm] = monthKey.split('-')
+  const d = new Date(parseInt(yyyy), parseInt(mm) - 1, 1)
   const monthYear = d.toLocaleDateString('en-SG', { month: 'long', year: 'numeric' })
-
-  // Alternate header accent colors for different days
-  const accents = ['#1A3F6F', '#1E5C3A', '#5C1A1A', '#1A3F5C', '#3A1E5C']
-  const bg = accents[colorIdx % accents.length]
 
   return (
     <tr>
       <td colSpan={9} className="px-0 py-0">
-        <div className="flex items-center gap-3 px-5 py-2.5" style={{ backgroundColor: bg }}>
-          <svg className="w-4 h-4 text-white opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-center gap-3 px-5 py-3 cursor-pointer select-none"
+          style={{ backgroundColor: '#1A3F6F' }} onClick={onToggle}>
+          <svg className={`w-4 h-4 text-white transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+          <span className="text-white font-black text-base tracking-wide">{monthYear}</span>
+          <span className="ml-auto text-xs font-bold px-2.5 py-0.5 rounded-full"
+            style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)' }}>
+            {count} proposal{count !== 1 ? 's' : ''}
+          </span>
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+// ── Date Group Header ─────────────────────────────────────────────────────────
+
+function DateGroupHeader({ sgDate, count, collapsed, onToggle }: {
+  sgDate: string; count: number; collapsed: boolean; onToggle: () => void
+}) {
+  const [dd, mm, yyyy] = sgDate.split('/')
+  const d = new Date(`${yyyy}-${mm}-${dd}`)
+  const weekday = d.toLocaleDateString('en-SG', { weekday: 'long' })
+  const dayNum = d.toLocaleDateString('en-SG', { day: 'numeric' })
+
+  return (
+    <tr>
+      <td colSpan={9} className="px-0 py-0">
+        <div className="flex items-center gap-3 px-9 py-2 cursor-pointer select-none"
+          style={{ backgroundColor: '#4B6278' }} onClick={onToggle}>
+          <svg className={`w-3.5 h-3.5 text-white transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+          </svg>
+          <svg className="w-3.5 h-3.5 text-white opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span className="text-white opacity-60 text-xs font-medium">{weekday}</span>
-          <span className="text-white font-black text-lg leading-none">{dayNum}</span>
-          <span className="text-white opacity-80 text-sm font-medium">{monthYear}</span>
-          <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full"
+          <span className="text-white opacity-70 text-xs font-medium">{weekday}</span>
+          <span className="text-white font-black text-base leading-none">{dayNum}</span>
+          <span className="ml-auto text-xs font-bold px-2.5 py-0.5 rounded-full"
             style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)' }}>
             {count} proposal{count !== 1 ? 's' : ''}
           </span>
@@ -241,6 +268,8 @@ export default function ContractTable() {
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [collapsedMonths, setCollapsedMonths] = useState<Set<string>>(new Set())
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set())
 
   const fetchContracts = useCallback(async () => {
     setLoading(true)
@@ -260,6 +289,22 @@ export default function ContractTable() {
 
   useEffect(() => { fetchContracts() }, [fetchContracts])
 
+  function toggleMonth(monthKey: string) {
+    setCollapsedMonths(prev => {
+      const next = new Set(prev)
+      if (next.has(monthKey)) next.delete(monthKey); else next.add(monthKey)
+      return next
+    })
+  }
+
+  function toggleDate(sgDate: string) {
+    setCollapsedDates(prev => {
+      const next = new Set(prev)
+      if (next.has(sgDate)) next.delete(sgDate); else next.add(sgDate)
+      return next
+    })
+  }
+
   async function handleDelete() {
     if (!deleteTarget) return
     setDeleteLoading(true)
@@ -276,22 +321,29 @@ export default function ContractTable() {
 
   // Filtered list
   const filtered = useMemo(() => contracts.filter(c => {
-    if (search && !c.client_name.toLowerCase().includes(search.toLowerCase())) return false
+    if (search) {
+      const q = search.toLowerCase()
+      if (!c.client_name.toLowerCase().includes(q) && !c.reference_id.toLowerCase().includes(q)) return false
+    }
     if (statusFilter === 'delivered') return c.is_delivered
     if (statusFilter === 'signed') return c.is_signed
     if (statusFilter === 'pending') return !c.is_delivered || !c.is_signed
     return true
   }), [contracts, search, statusFilter])
 
-  // Group by SG date (descending)
-  const dateGroups = useMemo(() => {
-    const map = new Map<string, Contract[]>()
+  // Group by month → date (3-level hierarchy)
+  const monthGroups = useMemo(() => {
+    const monthMap = new Map<string, Map<string, Contract[]>>()
     for (const c of filtered) {
-      const key = toSgDate(c.created_at)
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(c)
+      const sgDate = toSgDate(c.created_at) // dd/mm/yyyy
+      const [dd, mm, yyyy] = sgDate.split('/')
+      const monthKey = `${yyyy}-${mm}`
+      if (!monthMap.has(monthKey)) monthMap.set(monthKey, new Map())
+      const dateMap = monthMap.get(monthKey)!
+      if (!dateMap.has(sgDate)) dateMap.set(sgDate, [])
+      dateMap.get(sgDate)!.push(c)
     }
-    return Array.from(map.entries()) // already in order since filtered is sorted desc
+    return monthMap
   }, [filtered])
 
   const total = contracts.length
@@ -307,7 +359,7 @@ export default function ContractTable() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <StatCard label="Total Proposals" value={total} />
-        <StatCard label="Delivered" value={deliveredCount} sub={pct(deliveredCount)} accent="#1E5C3A" />
+        <StatCard label="Delivered" value={deliveredCount} sub={pct(deliveredCount)} accent="#4B6278" />
         <StatCard label="Signed" value={signedCount} sub={pct(signedCount)} accent="#1A3F6F" />
         <StatCard label="Pending" value={pendingCount} sub={pendingCount > 0 ? 'Need attention' : 'All done!'} accent="#8B1A2A" />
       </div>
@@ -321,7 +373,7 @@ export default function ContractTable() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input type="text" placeholder="Search client…" value={search}
+            <input type="text" placeholder="Search client / ref…" value={search}
               onChange={e => setSearch(e.target.value)}
               className="pl-7 pr-3 py-1.5 text-sm border border-[#C8D8EC] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#1A3F6F] w-44" />
           </div>
@@ -396,89 +448,104 @@ export default function ContractTable() {
                   </td>
                 </tr>
               ) : (
-                dateGroups.map(([sgDate, group], groupIdx) => (
-                  <React.Fragment key={sgDate}>
-                    <DateGroupHeader
-                      sgDate={sgDate}
-                      count={group.length}
-                      colorIdx={groupIdx}
-                    />
-                    {group.map((c, rowIdx) => (
-                      <tr
-                        key={c.id}
-                        className="border-t border-[#EBF1F8] hover:bg-[#F5F9FF] transition-colors"
-                        style={{ backgroundColor: rowIdx % 2 === 0 ? '#FFFFFF' : '#FAFCFF' }}
-                      >
-                        <td className="px-4 py-3">
-                          <span className="font-mono text-xs font-bold text-[#1A3F6F] bg-[#EBF1F8] px-2 py-1 rounded">
-                            {c.reference_id}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#6B7FA0] whitespace-nowrap">
-                          {formatDateTime(c.created_at)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm font-bold text-[#1A1A2E]">{c.client_name}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-bold text-[#2A4F7F] bg-[#EBF1F8] px-2 py-0.5 rounded-full">{c.pic}</span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <StatusCheckbox
-                            contractId={c.id} field="delivery" value={c.is_delivered}
-                            onChange={v => setContracts(prev => prev.map(x => x.id === c.id ? { ...x, is_delivered: v } : x))}
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <StatusCheckbox
-                            contractId={c.id} field="signature" value={c.is_signed ?? false}
-                            onChange={v => setContracts(prev => prev.map(x => x.id === c.id ? { ...x, is_signed: v } : x))}
-                          />
-                        </td>
-                        <td className="px-4 py-3">
-                          <RemarksCell contractId={c.id} initial={c.remarks} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <a href={c.file_url} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-bold text-[#1A3F6F] hover:text-[#2A6FC0] transition-colors">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            .docx
-                          </a>
-                        </td>
-                        {/* Actions */}
-                        <td className="px-3 py-3">
-                          <div className="flex items-center gap-1">
-                            {/* Regenerate */}
-                            <a
-                              href={`/proposal/generator?company=${encodeURIComponent(c.client_name)}&pic=${encodeURIComponent(c.pic)}&replaceId=${c.id}&replaceRef=${encodeURIComponent(c.reference_id)}`}
-                              title="Regenerate — open Generate page pre-filled"
-                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#C8D8EC] text-[#6B7FA0] hover:border-[#1A3F6F] hover:text-[#1A3F6F] hover:bg-[#EBF1F8] transition-colors"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                            </a>
-                            {/* Delete */}
-                            <button
-                              onClick={() => setDeleteTarget(c)}
-                              title="Delete record"
-                              className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#C8D8EC] text-[#6B7FA0] hover:border-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                            >
-                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </React.Fragment>
-                ))
+                Array.from(monthGroups.entries()).map(([monthKey, dateMap]) => {
+                  const monthCount = Array.from(dateMap.values()).reduce((s, g) => s + g.length, 0)
+                  const monthCollapsed = collapsedMonths.has(monthKey)
+                  return (
+                    <React.Fragment key={monthKey}>
+                      <MonthGroupHeader
+                        monthKey={monthKey}
+                        count={monthCount}
+                        collapsed={monthCollapsed}
+                        onToggle={() => toggleMonth(monthKey)}
+                      />
+                      {!monthCollapsed && Array.from(dateMap.entries()).map(([sgDate, group]) => {
+                        const dateCollapsed = collapsedDates.has(sgDate)
+                        return (
+                          <React.Fragment key={sgDate}>
+                            <DateGroupHeader
+                              sgDate={sgDate}
+                              count={group.length}
+                              collapsed={dateCollapsed}
+                              onToggle={() => toggleDate(sgDate)}
+                            />
+                            {!dateCollapsed && group.map((c, rowIdx) => (
+                              <tr
+                                key={c.id}
+                                className="border-t border-[#EBF1F8] hover:bg-[#F5F9FF] transition-colors"
+                                style={{ backgroundColor: rowIdx % 2 === 0 ? '#FFFFFF' : '#FAFCFF' }}
+                              >
+                                <td className="px-4 py-3">
+                                  <span className="font-mono text-xs font-bold text-[#1A3F6F] bg-[#EBF1F8] px-2 py-1 rounded">
+                                    {c.reference_id}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-xs text-[#6B7FA0] whitespace-nowrap">
+                                  {formatDateTime(c.created_at)}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-sm font-bold text-[#1A1A2E]">{c.client_name}</span>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className="text-xs font-bold text-[#2A4F7F] bg-[#EBF1F8] px-2 py-0.5 rounded-full">{c.pic}</span>
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <StatusCheckbox
+                                    contractId={c.id} field="delivery" value={c.is_delivered}
+                                    onChange={v => setContracts(prev => prev.map(x => x.id === c.id ? { ...x, is_delivered: v } : x))}
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <StatusCheckbox
+                                    contractId={c.id} field="signature" value={c.is_signed ?? false}
+                                    onChange={v => setContracts(prev => prev.map(x => x.id === c.id ? { ...x, is_signed: v } : x))}
+                                  />
+                                </td>
+                                <td className="px-4 py-3">
+                                  <RemarksCell contractId={c.id} initial={c.remarks} />
+                                </td>
+                                <td className="px-4 py-3">
+                                  <a href={c.file_url} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs font-bold text-[#1A3F6F] hover:text-[#2A6FC0] transition-colors">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                    .docx
+                                  </a>
+                                </td>
+                                <td className="px-3 py-3">
+                                  <div className="flex items-center gap-1">
+                                    <a
+                                      href={`/proposal/generator?company=${encodeURIComponent(c.client_name)}&pic=${encodeURIComponent(c.pic)}&replaceId=${c.id}&replaceRef=${encodeURIComponent(c.reference_id)}`}
+                                      title="Regenerate — open Generate page pre-filled"
+                                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#C8D8EC] text-[#6B7FA0] hover:border-[#1A3F6F] hover:text-[#1A3F6F] hover:bg-[#EBF1F8] transition-colors"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                      </svg>
+                                    </a>
+                                    <button
+                                      onClick={() => setDeleteTarget(c)}
+                                      title="Delete record"
+                                      className="w-7 h-7 flex items-center justify-center rounded-lg border border-[#C8D8EC] text-[#6B7FA0] hover:border-red-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </React.Fragment>
+                        )
+                      })}
+                    </React.Fragment>
+                  )
+                })
               )}
             </tbody>
           </table>

@@ -31,6 +31,7 @@ function getEffectiveFee(
   focModes: Record<string, FocMode>,
   quoteModes: Record<string, QuoteMode>,
 ): number {
+  if (svc.fee_type === 'discount') return parseFee(feeValues[svc.key] ?? '0')
   if (focModes[svc.key] === 'F.O.C.') return 0
   if (svc.fee_type === 'foc' || svc.fee_type === 'bundled') {
     return focModes[svc.key] === 'SGD' ? parseFee(feeValues[svc.key] ?? '0') : 0
@@ -84,7 +85,7 @@ function GeneratePageContent() {
     const m: Record<string, FocMode> = {}
     for (const svc of SERVICES) {
       if (svc.fee_type === 'foc' || svc.fee_type === 'bundled') m[svc.key] = 'F.O.C.'
-      else if (svc.fee !== null && svc.fee_type !== 'quote') m[svc.key] = 'SGD'
+      else if (svc.fee !== null && svc.fee_type !== 'quote' && svc.fee_type !== 'discount') m[svc.key] = 'SGD'
     }
     return m
   })
@@ -130,8 +131,6 @@ function GeneratePageContent() {
   })
   const [generating, setGenerating] = useState(false)
   const [showPopup, setShowPopup] = useState(false)
-  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
-  const [lastRefId, setLastRefId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -157,21 +156,29 @@ function GeneratePageContent() {
   }, [])
 
   // totals
-  const { mainTotal, optTotal, epTotal, grand } = (() => {
-    let mainTotal = 0, optTotal = 0, epTotal = 0
+  const { mainTotal, optTotal, epTotal, extraTotal, grand } = (() => {
+    let mainRaw = 0, optTotal = 0, epTotal = 0, extraTotal = 0, goodwillDisc = 0
     for (const svc of SERVICES) {
       if (!selected.has(svc.key)) continue
+      if (svc.fee_type === 'discount') {
+        goodwillDisc = getEffectiveFee(svc, feeValues, focModes, quoteModes)
+        continue
+      }
       const fee = getEffectiveFee(svc, feeValues, focModes, quoteModes)
       if (fee <= 0) continue
-      if (svc.table === 'main') mainTotal += fee
-      else if (svc.table === 'optional') optTotal += fee
+      if (svc.table === 'main') mainRaw += fee
+      else if (svc.table === 'optional') {
+        optTotal += fee
+        if (svc.cat === 'extra') extraTotal += fee
+      }
       else if (svc.table === 'ep') epTotal += fee
     }
     if (selected.has('ND')) {
       const dep = parseFee(feeValues['ND_DEPOSIT'] ?? '0')
-      if (dep > 0) mainTotal += dep
+      if (dep > 0) mainRaw += dep
     }
-    return { mainTotal, optTotal, epTotal, grand: mainTotal + optTotal }
+    const mainTotal = Math.max(0, mainRaw - goodwillDisc)
+    return { mainTotal, optTotal, epTotal, extraTotal, grand: mainTotal + extraTotal }
   })()
 
   const toggleService = useCallback((key: string) => {
@@ -183,8 +190,7 @@ function GeneratePageContent() {
     })
   }, [])
 
-  const selectAllInCat = useCallback((catKey: string, checked: boolean) => {
-    const keys = SERVICES.filter(s => s.cat === catKey).map(s => s.key)
+  const selectAllInCat = useCallback((keys: string[], checked: boolean) => {
     setSelected(prev => {
       const next = new Set(prev)
       for (const k of keys) checked ? next.add(k) : next.delete(k)
@@ -197,11 +203,15 @@ function GeneratePageContent() {
     if (!selectedPic) { setError('Please select a PIC'); return }
     setGenerating(true)
     setError(null)
-    setDownloadUrl(null)
 
     const feeOverrides: Record<string, number> = {}
     for (const svc of SERVICES) {
       const k = svc.key
+      if (svc.fee_type === 'discount') {
+        const v = parseFee(feeValues[k] ?? '0')
+        if (v > 0) feeOverrides[k] = v
+        continue
+      }
       if (svc.fee_type === 'foc' || svc.fee_type === 'bundled') {
         if (focModes[k] === 'SGD') {
           const v = parseFee(feeValues[k] ?? '0')
@@ -263,8 +273,11 @@ function GeneratePageContent() {
       })
       const data = await resp.json()
       if (data.success) {
-        setDownloadUrl(data.downloadUrl)
-        setLastRefId(data.referenceId)
+        const a = document.createElement('a')
+        a.href = data.downloadUrl
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
       } else {
         setError(data.error || 'Generation failed')
       }
@@ -452,13 +465,6 @@ function GeneratePageContent() {
 
           <div className="flex-1" />
 
-          {/* Result */}
-          {downloadUrl && (
-            <a href={downloadUrl} target="_blank" rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline">
-              ↓ Download {lastRefId}
-            </a>
-          )}
           {error && <span className="text-sm text-red-500">{error}</span>}
 
           {/* Grand Total */}
@@ -499,7 +505,9 @@ function GeneratePageContent() {
       {/* Popup */}
       {showPopup && (
         <SelectedServicesPopup
-          services={SERVICES.filter(s => selected.has(s.key) && s.table !== 'ep')}
+          services={SERVICES
+            .filter(s => selected.has(s.key) && (s.cat === 'table1' || s.cat === 'extra'))
+            .sort((a, b) => (a.fee_type === 'discount' ? 1 : 0) - (b.fee_type === 'discount' ? 1 : 0))}
           feeValues={feeValues}
           focModes={focModes}
           quoteModes={quoteModes}
@@ -552,7 +560,7 @@ interface QBProps {
   quoteModes: Record<string, QuoteMode>
   collapsedCats: Record<string, boolean>
   onToggleService: (key: string) => void
-  onSelectAllCat: (cat: string, checked: boolean) => void
+  onSelectAllCat: (keys: string[], checked: boolean) => void
   onToggleCat: (cat: string) => void
   onFeeChange: (key: string, val: string) => void
   onFocModeChange: (key: string, mode: FocMode) => void
@@ -569,10 +577,9 @@ function QuoteBuilderTab({
     groups[svc.cat] = groups[svc.cat] ?? []
     groups[svc.cat].push(svc)
   }
-  // Template Table 2 includes Secretarial (row 2) and Address (row 3) which also appear in Table 1.
-  // Explicitly build table2 in template order: ACCOUNTS, SECRETARIAL, ADDRESS, AR, UNAUDITEDFS, COMPANYTAX, PERSONALTAX, PAYROLL
+  // Explicitly build table2 in template order; SECRETARIAL2/ADDRESS2 are the Table-2-only versions
   const svcByKey = Object.fromEntries(SERVICES.map(s => [s.key, s]))
-  groups['table2'] = ['ACCOUNTS', 'SECRETARIAL', 'ADDRESS', 'AR', 'UNAUDITEDFS', 'COMPANYTAX', 'PERSONALTAX', 'PAYROLL']
+  groups['table2'] = ['ACCOUNTS', 'SECRETARIAL2', 'ADDRESS2', 'AR', 'UNAUDITEDFS', 'COMPANYTAX', 'PERSONALTAX', 'PAYROLL']
     .map(k => svcByKey[k]).filter(Boolean)
 
   return (
@@ -600,7 +607,7 @@ function QuoteBuilderTab({
                   <input
                     type="checkbox"
                     checked={allChecked}
-                    onChange={e => onSelectAllCat(catKey, e.target.checked)}
+                    onChange={e => onSelectAllCat(catSvcs.map(s => s.key), e.target.checked)}
                     className="w-4 h-4 accent-[#5BA3D9]"
                   />
                 </label>
@@ -608,38 +615,68 @@ function QuoteBuilderTab({
             </div>
 
             {/* Body */}
-            {!collapsed && (
-              <div>
-                {/* Column subheader */}
-                <div className="flex items-center h-6 bg-[#EBF1F8]">
-                  <span className="text-[9px] font-bold text-[#4A6F9A] ml-12">Service</span>
-                  <span className="text-[9px] font-bold text-[#4A6F9A] ml-auto mr-4">Fee</span>
-                </div>
-                {catSvcs.map((svc, i) => (
-                  <div key={svc.key}>
-                    <ServiceRow
-                      svc={svc}
-                      checked={selected.has(svc.key)}
-                      feeValue={feeValues[svc.key] ?? '0.00'}
-                      ndDepositValue={feeValues['ND_DEPOSIT'] ?? '3,000.00'}
-                      focMode={focModes[svc.key]}
-                      quoteMode={quoteModes[svc.key]}
-                      onToggle={() => onToggleService(svc.key)}
-                      onFeeChange={v => onFeeChange(svc.key, v)}
-                      onNdDepositChange={v => onFeeChange('ND_DEPOSIT', v)}
-                      onFocModeChange={m => onFocModeChange(svc.key, m)}
-                      onQuoteModeChange={m => onQuoteModeChange(svc.key, m)}
-                      rowBg={i % 2 === 0 ? '#FFFFFF' : '#F5F9FF'}
-                      showNdDeposit={svc.key === 'ND' && selected.has('ND')}
-                    />
-                    {i < catSvcs.length - 1 && (
-                      <div className="h-px bg-[#E0EAF5] mx-4" />
-                    )}
+            {!collapsed && (() => {
+              const regularSvcs = catSvcs.filter(s => s.fee_type !== 'discount')
+              const discountSvcs = catSvcs.filter(s => s.fee_type === 'discount')
+              return (
+                <div>
+                  {/* Column subheader */}
+                  <div className="flex items-center h-6 bg-[#EBF1F8]">
+                    <span className="text-[9px] font-bold text-[#4A6F9A] ml-12">Service</span>
+                    <span className="text-[9px] font-bold text-[#4A6F9A] ml-auto mr-4">Fee</span>
                   </div>
-                ))}
-                <div className="h-1.5" />
-              </div>
-            )}
+                  {regularSvcs.map((svc, i) => (
+                    <div key={svc.key}>
+                      <ServiceRow
+                        svc={svc}
+                        checked={selected.has(svc.key)}
+                        feeValue={feeValues[svc.key] ?? '0.00'}
+                        ndDepositValue={feeValues['ND_DEPOSIT'] ?? '3,000.00'}
+                        focMode={focModes[svc.key]}
+                        quoteMode={quoteModes[svc.key]}
+                        onToggle={() => onToggleService(svc.key)}
+                        onFeeChange={v => onFeeChange(svc.key, v)}
+                        onNdDepositChange={v => onFeeChange('ND_DEPOSIT', v)}
+                        onFocModeChange={m => onFocModeChange(svc.key, m)}
+                        onQuoteModeChange={m => onQuoteModeChange(svc.key, m)}
+                        rowBg={i % 2 === 0 ? '#FFFFFF' : '#F5F9FF'}
+                        showNdDeposit={svc.key === 'ND' && selected.has('ND')}
+                      />
+                      {i < regularSvcs.length - 1 && (
+                        <div className="h-px bg-[#E0EAF5] mx-4" />
+                      )}
+                    </div>
+                  ))}
+                  {/* Discount sub-card */}
+                  {discountSvcs.length > 0 && (
+                    <div className="mx-3 my-3 rounded-lg overflow-hidden border-2 border-[#E8A0A8]">
+                      <div className="flex items-center h-7 px-3" style={{ backgroundColor: '#8B1A2A' }}>
+                        <span className="text-[10px] font-bold text-[#FFCDD5] tracking-widest">DISCOUNT  折扣</span>
+                      </div>
+                      {discountSvcs.map(svc => (
+                        <ServiceRow
+                          key={svc.key}
+                          svc={svc}
+                          checked={selected.has(svc.key)}
+                          feeValue={feeValues[svc.key] ?? '0.00'}
+                          ndDepositValue={feeValues['ND_DEPOSIT'] ?? '3,000.00'}
+                          focMode={focModes[svc.key]}
+                          quoteMode={quoteModes[svc.key]}
+                          onToggle={() => onToggleService(svc.key)}
+                          onFeeChange={v => onFeeChange(svc.key, v)}
+                          onNdDepositChange={v => onFeeChange('ND_DEPOSIT', v)}
+                          onFocModeChange={m => onFocModeChange(svc.key, m)}
+                          onQuoteModeChange={m => onQuoteModeChange(svc.key, m)}
+                          rowBg='#FFF5F6'
+                          showNdDeposit={false}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <div className="h-1.5" />
+                </div>
+              )
+            })()}
           </div>
         )
       })}
@@ -670,31 +707,41 @@ function ServiceRow({
   onToggle, onFeeChange, onNdDepositChange, onFocModeChange, onQuoteModeChange,
   rowBg, showNdDeposit,
 }: SvcRowProps) {
+  const isDiscount = svc.fee_type === 'discount'
   const isFoc = svc.fee_type === 'foc' || svc.fee_type === 'bundled'
   const isQuote = svc.fee_type === 'quote'
-  const isNumeric = !isFoc && !isQuote && svc.fee !== null
+  const isNumeric = !isDiscount && !isFoc && !isQuote && svc.fee !== null
+
+  const discountRowBg = isDiscount ? '#FFF5F6' : rowBg
+  const discountBorder = isDiscount ? '2px solid #E8A0A8' : undefined
 
   return (
     <>
-      <div className="flex items-center" style={{ backgroundColor: rowBg }}>
+      <div className="flex items-center" style={{ backgroundColor: discountRowBg, borderTop: isDiscount ? discountBorder : undefined, borderBottom: isDiscount ? discountBorder : undefined }}>
         {/* Checkbox */}
         <div className="w-10 flex justify-center shrink-0">
           <input
             type="checkbox"
             checked={checked}
             onChange={onToggle}
-            className="w-5 h-5 accent-[#1A3F6F] cursor-pointer"
+            className={`w-5 h-5 cursor-pointer ${isDiscount ? 'accent-[#8B1A2A]' : 'accent-[#1A3F6F]'}`}
           />
         </div>
 
         {/* Name */}
         <div className="flex-1 py-2.5 pr-3">
-          <div className="text-sm font-bold text-[#1A1A2E]">{svc.en}</div>
-          <div className="text-xs text-[#6B7FA0] mt-0.5">{svc.cn}</div>
+          <div className={`text-sm font-bold ${isDiscount ? 'text-[#8B1A2A]' : 'text-[#1A1A2E]'}`}>{svc.en}</div>
+          <div className={`text-xs mt-0.5 ${isDiscount ? 'text-[#C06070]' : 'text-[#6B7FA0]'}`}>{svc.cn}</div>
         </div>
 
         {/* Fee badge */}
         <div className="shrink-0 mr-4">
+          {isDiscount && (
+            <DiscountBadge
+              value={feeValue}
+              onChange={onFeeChange}
+            />
+          )}
           {isFoc && (
             <FocBadge
               mode={focMode ?? 'F.O.C.'}
@@ -805,16 +852,47 @@ function QuoteBadge({ mode, value, onModeChange, onValueChange }: {
   )
 }
 
+function DiscountBadge({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="flex items-center gap-1 bg-[#FFF0F2] rounded-lg px-2.5 py-1.5 border border-[#F0C0C8]">
+      <span className="text-xs font-bold text-[#8B1A2A]">- SGD</span>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#8B1A2A]"
+        placeholder="0.00"
+      />
+    </div>
+  )
+}
+
 function NumericBadge({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const numVal = parseInt(value.split('.')[0], 10) || 0
+  const displayVal = numVal.toLocaleString('en-US')
+
   return (
     <div className="flex items-center gap-1 bg-[#E8F0FB] rounded-lg px-2.5 py-1.5">
       <span className="text-xs font-bold text-[#1A3F6F]">SGD</span>
       <input
         type="text"
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
+        value={displayVal}
+        onChange={e => {
+          const rawNum = e.target.value.replace(/,/g, '')
+          if (rawNum === '' || /^\d+$/.test(rawNum)) {
+            onChange(rawNum ? `${rawNum}.00` : '')
+          }
+        }}
+        onKeyDown={e => {
+          const key = e.key
+          const isNumber = /^\d$/.test(key)
+          const isDelete = key === 'Backspace' || key === 'Delete'
+          const isNav = ['ArrowLeft', 'ArrowRight', 'Tab'].includes(key)
+          if (!isNumber && !isDelete && !isNav && key !== 'Control' && key !== 'Meta' && key !== 'Shift') e.preventDefault()
+        }}
+        className="w-16 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
       />
+      <span className="text-xs font-bold text-[#1A3F6F]">.00</span>
     </div>
   )
 }
@@ -841,10 +919,23 @@ function NumericFocBadge({ mode, value, onModeChange, onValueChange }: {
           <span className="text-xs font-bold text-[#1A3F6F]">SGD</span>
           <input
             type="text"
-            value={value}
-            onChange={e => onValueChange(e.target.value)}
-            className="w-20 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
+            value={(parseInt(value.split('.')[0], 10) || 0).toLocaleString('en-US')}
+            onChange={e => {
+              const rawNum = e.target.value.replace(/,/g, '')
+              if (rawNum === '' || /^\d+$/.test(rawNum)) {
+                onValueChange(rawNum ? `${rawNum}.00` : '')
+              }
+            }}
+            onKeyDown={e => {
+              const key = e.key
+              const isNumber = /^\d$/.test(key)
+              const isDelete = key === 'Backspace' || key === 'Delete'
+              const isNav = ['ArrowLeft', 'ArrowRight', 'Tab'].includes(key)
+              if (!isNumber && !isDelete && !isNav && key !== 'Control' && key !== 'Meta' && key !== 'Shift') e.preventDefault()
+            }}
+            className="w-16 text-xs font-bold text-right bg-transparent border-0 outline-none text-[#1A3F6F]"
           />
+          <span className="text-xs font-bold text-[#1A3F6F]">.00</span>
         </div>
       )}
     </div>
@@ -1044,21 +1135,29 @@ function SelectedServicesPopup({ services, feeValues, focModes, quoteModes, onCl
             <div className="text-center text-gray-500 py-8">No services selected  未选择任何服务</div>
           ) : (
             services.map((svc, i) => {
+              const isDisc = svc.fee_type === 'discount'
               const fee = getEffectiveFee(svc, feeValues, focModes, quoteModes)
-              const isFocDisplay = fee === 0 && (focModes[svc.key] === 'F.O.C.' || svc.fee_type === 'foc' || svc.fee_type === 'bundled')
-              const feeDisplay = fee > 0
-                ? `SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
-                : isFocDisplay ? 'F.O.C.' : svc.fee_str
+              const isFocDisplay = !isDisc && fee === 0 && (focModes[svc.key] === 'F.O.C.' || svc.fee_type === 'foc' || svc.fee_type === 'bundled')
+              const feeDisplay = isDisc
+                ? `- SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+                : fee > 0
+                  ? `SGD ${fee.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+                  : isFocDisplay ? 'F.O.C.' : svc.fee_str
               return (
                 <div key={svc.key}
-                  className="flex items-center rounded-lg border border-[#D8E8F4] mb-2 px-3 py-2"
-                  style={{ backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#F5F9FF' }}>
-                  <span className="text-sm font-bold text-[#1A3F6F] w-7 text-right mr-3">{i + 1}.</span>
+                  className="flex items-center rounded-lg mb-2 px-3 py-2"
+                  style={{
+                    backgroundColor: isDisc ? '#FFF5F6' : i % 2 === 0 ? '#FFFFFF' : '#F5F9FF',
+                    border: isDisc ? '1px solid #E8A0A8' : '1px solid #D8E8F4',
+                  }}>
+                  <span className={`text-sm font-bold w-7 text-right mr-3 ${isDisc ? 'text-[#8B1A2A]' : 'text-[#1A3F6F]'}`}>
+                    {isDisc ? '—' : `${i + 1}.`}
+                  </span>
                   <div className="flex-1">
-                    <div className="text-sm font-bold text-[#1A1A2E]">{svc.en}</div>
-                    <div className="text-xs text-gray-500">{svc.cn}</div>
+                    <div className={`text-sm font-bold ${isDisc ? 'text-[#8B1A2A]' : 'text-[#1A1A2E]'}`}>{svc.en}</div>
+                    <div className={`text-xs ${isDisc ? 'text-[#C06070]' : 'text-gray-500'}`}>{svc.cn}</div>
                   </div>
-                  <span className={`text-sm font-bold ${isFocDisplay ? 'text-[#2D7D4E]' : 'text-[#1A3F6F]'}`}>
+                  <span className={`text-sm font-bold ${isDisc ? 'text-[#8B1A2A]' : isFocDisplay ? 'text-[#2D7D4E]' : 'text-[#1A3F6F]'}`}>
                     {feeDisplay}
                   </span>
                 </div>

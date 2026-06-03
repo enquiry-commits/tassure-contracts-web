@@ -1,4 +1,4 @@
-export type FeeType = 'onetime' | 'yearly' | 'per_person' | 'govt' | 'quote' | 'bundled' | 'foc' | 'from'
+export type FeeType = 'onetime' | 'yearly' | 'per_person' | 'govt' | 'quote' | 'bundled' | 'foc' | 'from' | 'discount'
 export type TableType = 'main' | 'optional' | 'ep'
 
 export interface Service {
@@ -153,7 +153,66 @@ export const SERVICES: Service[] = [
     table_desc: [],
   },
 
+  // ── TABLE 1 — Additional rows (11-13 + Goodwill Discount) ──────────────────
+  {
+    key: 'CERT', cat: 'table1', num: 11,
+    en: 'Purchase of Certificate of Incorporation', cn: '购买公司注册证书',
+    fee: 100, fee_type: 'onetime', fee_str: 'SGD 100.00', fee_note: 'One-time / 一次性',
+    default: false, content_type: 'bullets', content: [],
+    table: 'main', table_desc: [],
+  },
+  {
+    key: 'DP_MAIN', cat: 'table1', num: 12,
+    en: 'DP Application', cn: '家属准证申请',
+    fee: 600, fee_type: 'per_person', fee_str: 'SGD 600.00/person', fee_note: 'Per person 每位 (Government fee included 含政府费用)',
+    default: false, content_type: 'bullets', content: [],
+    table: 'main', table_desc: [],
+  },
+  {
+    key: 'LOC_MAIN', cat: 'table1', num: 13,
+    en: 'Letter of Consent (LOC) Application', cn: '工作许可同意书（LOC）申请',
+    fee: 200, fee_type: 'per_person', fee_str: 'SGD 200.00/person', fee_note: 'Per person / 每位',
+    default: false, content_type: 'bullets', content: [],
+    table: 'main', table_desc: [],
+  },
+  {
+    key: 'GOODWILL_DISC', cat: 'table1', num: 0,
+    en: 'Goodwill Discount', cn: '折扣-整体配套',
+    fee: 0, fee_type: 'discount', fee_str: '0', fee_note: 'Deduction from total / 从总价中扣除',
+    default: false, content_type: 'bullets', content: [],
+    table: 'main', table_desc: [],
+  },
+
   // ── TABLE 2 — Annual Maintenance (template rows 1-8) ─────────────────────────
+  {
+    key: 'SECRETARIAL2', cat: 'table2', num: 30,
+    en: 'Corporate Secretarial Services - Yearly', cn: '公司法定秘书服务（年费）',
+    fee: 700, fee_type: 'yearly', fee_str: 'SGD 700.00', fee_note: 'Per year / 每年',
+    default: false, content_type: 'bullets',
+    content: [
+      ['Safe custody of statutory records (e.g. register of shareholders, directors and secretaries, transfer, charges etc.)', '秘书档案建立和管理'],
+      ['Preparing all documentation for the routine Annual General Meeting ("AGM") as required by the Singapore Companies Act', '根据《新加坡公司法1967》的要求，准备年度股东大会的文件'],
+      ['Preparing and submitting electronically to ACRA the prescribed Annual Return', '提交年检'],
+      ['Drafting of routine resolutions for matters such as bank accounts, change of secretary, registered address etc.', '配合公司发展需要准备相应的董事决议，例如银行账户开设/关闭帐户等事项'],
+      ['Liaison with auditors/accountant for statutory review where applicable', '如若公司有审计要求，配合联系审计师或会计师安排审核秘书文件'],
+      ['Attend to ad hoc requests including EGM, share allotment/transfer, ACRA lodgements etc. (additional fees may apply)', '应特别要求，包括特别股东大会（EGM）、股份分配、转让、ACRA申报等（附加费用视情况而异）'],
+    ],
+    table: 'optional',
+    table_desc: ['Refer to Service 2 for full scope  详见第二项服务内容', 'Includes: important date reminders, statutory records, AGM documentation and Annual Return filing  包括：重要日期提醒、保存/更新公司记录、年度股东大会文件及年检递交'],
+  },
+  {
+    key: 'ADDRESS2', cat: 'table2', num: 31,
+    en: 'Registered Office and Mailing Address Services - Yearly', cn: '公司注册地址及收信服务（年费）',
+    fee: 360, fee_type: 'yearly', fee_str: 'SGD 360.00', fee_note: 'Per year / 每年',
+    default: false, content_type: 'bullets',
+    content: [
+      ['Registered address', '公司注册使用地址'],
+      ['Mails checking/collection/scanning/emailing', '收信服务/扫描/邮件信件'],
+      ['Postage or courier arrangement upon request', '根据客户要求安排邮递或快递'],
+    ],
+    table: 'optional',
+    table_desc: ['Registered office address for company use  公司注册使用地址', 'Mail collection, scanning and forwarding  信件收取、扫描及转发'],
+  },
   {
     key: 'ACCOUNTS', cat: 'table2', num: 11,
     en: 'Accounts Preparation - Yearly', cn: '年度做账服务',
@@ -250,7 +309,7 @@ export const SERVICES: Service[] = [
   {
     key: 'DP', cat: 'table3', num: 18,
     en: 'DP Application', cn: '家属准证申请',
-    fee: 800, fee_type: 'per_person', fee_str: 'SGD 800.00', fee_note: 'Per applicant / 每位',
+    fee: 600, fee_type: 'per_person', fee_str: 'SGD 600.00/person', fee_note: 'Per applicant 每位 (Government fee included 含政府费用)',
     default: true, content_type: 'paras',
     content: [
       ["Dependant's Pass (\"DP\") refers to a pass issued by the Ministry of Manpower (\"MOM\") to eligible family members of Employment Pass or S Pass holders residing in Singapore.", '家属准证（"DP"）是由新加坡人力部（"MOM"）签发予EP或S Pass持有人符合资格之家属于新加坡居留的准证。'],
@@ -260,7 +319,14 @@ export const SERVICES: Service[] = [
     table_desc: ["Full DP application process for eligible family members of EP / S Pass holders  为EP/S Pass持有人符合资格之家属办理完整DP申请流程"],
   },
   {
-    key: 'LOC', cat: 'table3', num: 19,
+    key: 'DP_RENEW', cat: 'table3', num: 19,
+    en: 'DP renewal service', cn: 'DP 续约（每2年一次）',
+    fee: 600, fee_type: 'per_person', fee_str: 'SGD 600.00/person', fee_note: 'Per person 每位 (Government fee included 含政府费用)',
+    default: true, content_type: 'bullets', content: [],
+    table: 'ep', table_desc: [],
+  },
+  {
+    key: 'LOC', cat: 'table3', num: 20,
     en: 'Letter of Consent (LOC) Application', cn: '工作许可同意书（LOC）申请',
     fee: 200, fee_type: 'per_person', fee_str: 'SGD 200.00', fee_note: 'Per applicant / 每位',
     default: true, content_type: 'paras',
@@ -334,7 +400,7 @@ export const MAIN_FEES: Record<string, number> = {
   INCORP: 900, SECRETARIAL: 700, ADDRESS: 360, ND: 3000, EP: 4000, BANK: 1000,
 }
 export const OPT_FEES: Record<string, number> = {
-  ACCOUNTS: 1500, SECRETARIAL: 700, ADDRESS: 360, AR: 60,
+  ACCOUNTS: 1500, SECRETARIAL2: 700, ADDRESS2: 360, AR: 60,
   UNAUDITEDFS: 700, COMPANYTAX: 700, PERSONALTAX: 300, PAYROLL: 600,
 }
 
@@ -351,12 +417,17 @@ export const ROW_DEFS: Record<string, { table: string; label: string; match: str
   MAIN_SEC:        { table: 'main', label: 'Corporate Secretarial Services – Yearly',          match: 'Corporate Secretarial Services' },
   MAIN_BANK:       { table: 'main', label: 'Corporate Bank Account Opening Support',           match: 'Corporate Bank Account Opening' },
   MAIN_ADDR:       { table: 'main', label: 'Registered Office and Mailing Address – Yearly',  match: 'Registered Office and Mailing Address' },
-  MAIN_ND:         { table: 'main', label: 'Local Nominee Director Service',                   match: 'Nominee Director' },
+  MAIN_ND:         { table: 'main', label: 'Local Nominee Director Service',                   match: 'Local Nominee Director Service' },
   MAIN_ND_DEPOSIT: { table: 'main', label: 'Additional Deposit (ND sub-row)',                  match: 'Additional Deposit' },
   MAIN_EP:         { table: 'main', label: 'Employment Pass (EP) Application Service',         match: 'Employment Pass (EP) Application' },
-  MAIN_POST_EP:    { table: 'main', label: 'One-Time Post-EP Changes (FOC)',                   match: 'One-Time Post-EP' },
-  MAIN_CORPPASS:   { table: 'main', label: 'CorpPass Account Registration (FOC)',              match: 'CorpPass Account Registration' },
-  MAIN_PDPA:       { table: 'main', label: 'PDPA Compliance — DPO Appointment (FOC)',         match: 'PDPA Compliance' },
+  MAIN_POST_EP:      { table: 'main', label: 'One-Time Post-EP Changes (FOC)',                   match: 'One-Time Post-EP' },
+  MAIN_CORPPASS:     { table: 'main', label: 'CorpPass Account Registration (FOC)',              match: 'CorpPass Account Registration' },
+  MAIN_PDPA:         { table: 'main', label: 'PDPA Compliance — DPO Appointment (FOC)',         match: 'PDPA Compliance' },
+  MAIN_CORP_CONSULT: { table: 'main', label: 'Corporate Consultation Support (FOC)',             match: 'Corporate Consultation' },
+  MAIN_CERT:        { table: 'main', label: 'Purchase of Certificate of Incorporation',          match: 'Certificate of Incorporation' },
+  MAIN_DP_MAIN:     { table: 'main', label: 'DP Application (TABLE 1)',                          match: 'DP Application' },
+  MAIN_LOC_MAIN:    { table: 'main', label: 'Letter of Consent (LOC) Application (TABLE 1)',     match: 'Letter of Consent' },
+  MAIN_GOODWILL:    { table: 'main', label: 'Goodwill Discount',                                 match: 'Goodwill Discount' },
   // ── Table 2 (opt) ── match strings verified against V2026.0528 template
   OPT_ACCOUNTS:    { table: 'opt',  label: 'Accounts Preparation – Yearly',                   match: 'Accounts Preparation' },
   OPT_SECRETARIAL: { table: 'opt',  label: 'Secretarial Services – Yearly',                   match: 'Secretarial Services' },
@@ -369,41 +440,52 @@ export const ROW_DEFS: Record<string, { table: string; label: string; match: str
   // ── Table 3 (ep) ── match strings verified against V2026.0528 template
   EP_RENEW:        { table: 'ep',   label: 'EP Renewal Service',                              match: 'EP renewal service' },
   EP_DP:           { table: 'ep',   label: "DP Application",                                  match: 'DP Application' },
+  EP_DP_RENEW:     { table: 'ep',   label: 'DP renewal service',                              match: 'DP renewal service' },
   EP_LOC:          { table: 'ep',   label: 'Letter of Consent (LOC) Application',             match: 'Letter of Consent' },
   EP_SDL:          { table: 'ep',   label: 'EP Monthly SDL',                                  match: 'SDL' },
 }
 
 export const DEFAULT_MAPPING: Record<string, string[]> = {
-  INCORP:       ['MAIN_INCORP'],
-  SECRETARIAL:  ['MAIN_SEC', 'OPT_SECRETARIAL'],
-  BANK:         ['MAIN_BANK'],
-  ADDRESS:      ['MAIN_ADDR', 'OPT_ADDRESS'],
+  INCORP:        ['MAIN_INCORP'],
+  SECRETARIAL:   ['MAIN_SEC'],
+  SECRETARIAL2:  ['OPT_SECRETARIAL'],
+  BANK:          ['MAIN_BANK'],
+  ADDRESS:       ['MAIN_ADDR'],
+  ADDRESS2:      ['OPT_ADDRESS'],
   ND:           ['MAIN_ND', 'MAIN_ND_DEPOSIT'],
   EP:           ['MAIN_EP'],
   POST_EP:      ['MAIN_POST_EP'],
   CORPPASS:     ['MAIN_CORPPASS'],
   PDPA:         ['MAIN_PDPA'],
-  CORP_CONSULT: [],
+  CORP_CONSULT: ['MAIN_CORP_CONSULT'],
   ACCOUNTS:     ['OPT_ACCOUNTS'],
   AR:           ['OPT_AR_GOV'],
   UNAUDITEDFS:  ['OPT_UFS'],
   AUDIT:        [],
   COMPANYTAX:   ['OPT_CORPTAX'],
   PERSONALTAX:  ['OPT_PERSONALTAX'],
-  AIS:          ['OPT_PERSONALTAX'],
+  AIS:          [],
   PAYROLL:      ['OPT_PAYROLL'],
   PASSRENEWAL:  ['EP_RENEW'],
   DP:           ['EP_DP'],
+  DP_RENEW:     ['EP_DP_RENEW'],
   LOC:          ['EP_LOC'],
   EP_SDL:       ['EP_SDL'],
   XBRL:         [],
+  CERT:         ['MAIN_CERT'],
+  DP_MAIN:      ['MAIN_DP_MAIN'],
+  LOC_MAIN:     ['MAIN_LOC_MAIN'],
+  GOODWILL_DISC: ['MAIN_GOODWILL'],
 }
 
 export const ROW_ID_TO_SVC: Record<string, string> = {
   MAIN_INCORP: 'INCORP', MAIN_SEC: 'SECRETARIAL', MAIN_ADDR: 'ADDRESS',
   MAIN_ND: 'ND', MAIN_EP: 'EP', MAIN_BANK: 'BANK',
-  OPT_ACCOUNTS: 'ACCOUNTS', OPT_SECRETARIAL: 'SECRETARIAL', OPT_ADDRESS: 'ADDRESS',
+  MAIN_CORP_CONSULT: 'CORP_CONSULT',
+  OPT_ACCOUNTS: 'ACCOUNTS', OPT_SECRETARIAL: 'SECRETARIAL2', OPT_ADDRESS: 'ADDRESS2',
   OPT_AR_GOV: 'AR', OPT_UFS: 'UNAUDITEDFS', OPT_CORPTAX: 'COMPANYTAX',
   OPT_PERSONALTAX: 'PERSONALTAX', OPT_PAYROLL: 'PAYROLL',
-  EP_RENEW: 'PASSRENEWAL', EP_DP: 'DP', EP_LOC: 'LOC', EP_SDL: 'EP_SDL',
+  EP_RENEW: 'PASSRENEWAL', EP_DP: 'DP', EP_DP_RENEW: 'DP_RENEW', EP_LOC: 'LOC', EP_SDL: 'EP_SDL',
+  MAIN_CERT: 'CERT', MAIN_DP_MAIN: 'DP_MAIN', MAIN_LOC_MAIN: 'LOC_MAIN',
+  MAIN_GOODWILL: 'GOODWILL_DISC',
 }

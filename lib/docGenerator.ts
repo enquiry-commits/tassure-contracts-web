@@ -74,9 +74,15 @@ function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: R
   const text = cells.map(c => cellText(c)).join(' ')
   if (text.includes('Service Scope') || text.includes('Total')) return true
   const rid = rowIdForCell(text, table)
-  if (rid === null) return true  // unknown rows always kept (e.g. Corporate Consultation Support)
-  // These F.O.C. rows are always shown in the main table regardless of service selection.
-  if (table === 'main' && (rid === 'MAIN_POST_EP' || rid === 'MAIN_CORPPASS' || rid === 'MAIN_PDPA')) return true
+  if (rid === null) return true  // truly unknown rows always kept
+  // FOC merge group rows are controlled directly by service selection, not via the configurable mapping
+  if (table === 'main') {
+    const FOC_RID_TO_SVC: Record<string, string> = {
+      MAIN_POST_EP: 'POST_EP', MAIN_CORPPASS: 'CORPPASS',
+      MAIN_PDPA: 'PDPA', MAIN_CORP_CONSULT: 'CORP_CONSULT',
+    }
+    if (FOC_RID_TO_SVC[rid] !== undefined) return sel.has(FOC_RID_TO_SVC[rid])
+  }
   return [...sel].some(k => (mapping[k] ?? []).includes(rid))
 }
 
@@ -90,23 +96,63 @@ function fmtNum(n: number): string {
   return n.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
-function updateFeeCell(tc: Element, amount: number): void {
+// Split text at first Chinese character: ["English part", "中文部分"]
+function splitAtChinese(text: string): [string, string] {
+  const m = text.search(/[一-鿿㐀-䶿]/)
+  return m === -1 ? [text, ''] : [text.slice(0, m), text.slice(m)]
+}
+
+// Build a <w:r> with explicit Calibri font and half-point size (e.g. '20' = 10pt, '18' = 9pt)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function makeCalibriRun(text: string, szVal: string, xmlDoc: any, eastAsiaFont = 'Calibri', bold = false): Element {
+  const r = xmlDoc.createElement('w:r')
+  const rPr = xmlDoc.createElement('w:rPr')
+  const rFonts = xmlDoc.createElement('w:rFonts')
+  rFonts.setAttribute('w:ascii', 'Calibri')
+  rFonts.setAttribute('w:hAnsi', 'Calibri')
+  rFonts.setAttribute('w:eastAsia', eastAsiaFont)
+  rPr.appendChild(rFonts)
+  if (bold) { const b = xmlDoc.createElement('w:b'); rPr.appendChild(b) }
+  const sz = xmlDoc.createElement('w:sz'); sz.setAttribute('w:val', szVal); rPr.appendChild(sz)
+  const szCs = xmlDoc.createElement('w:szCs'); szCs.setAttribute('w:val', szVal); rPr.appendChild(szCs)
+  r.appendChild(rPr)
+  const t = xmlDoc.createElement('w:t')
+  t.setAttribute('xml:space', 'preserve')
+  t.textContent = text
+  r.appendChild(t)
+  return r
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function updateFeeCell(tc: Element, amount: number, xmlDoc: any): void {
   const num = fmtNum(amount)
+
+  // First pass: unambiguous markers that always live in a single run
   for (const run of allDescendants(tc, 'r')) {
     for (const t of allDescendants(run, 't')) {
       const txt = t.textContent ?? ''
       if (/SGD\s+[\d,]+\.?\d*/.test(txt)) {
-        t.textContent = txt.replace(/SGD\s+[\d,]+\.?\d*/, fmtSGD(amount))
+        t.textContent = txt.replace(/SGD\s+[\d,]+\.?\d*/, num)
         return
       }
-      if (txt.includes('F.O.C.')) { t.textContent = txt.replace('F.O.C.', fmtSGD(amount)); return }
-      if (txt.includes('On Quote')) { t.textContent = txt.replace('On Quote', fmtSGD(amount)); return }
-      // New template uses plain numbers like "900.00", "3,000.00", "12,960.00(Including...)"
-      if (/[\d,]+\.\d+/.test(txt)) {
-        t.textContent = txt.replace(/[\d,]+\.\d+/, num)
-        return
-      }
+      if (txt.includes('F.O.C.')) { t.textContent = txt.replace('F.O.C.', num); return }
+      if (txt.includes('On Quote')) { t.textContent = txt.replace('On Quote', num); return }
     }
+  }
+
+  // Second pass: combine all <w:t> elements per paragraph, replace number, then rebuild with
+  // bilingual Calibri runs — English 10pt (sz=20), Chinese 9pt (sz=18).
+  for (const para of allDescendants(tc, 'p')) {
+    const ts = allDescendants(para, 't')
+    if (ts.length === 0) continue
+    const combined = ts.map(t => t.textContent ?? '').join('')
+    if (!/[\d,]+\.\d+/.test(combined)) continue
+    const newText = combined.replace(/[\d,]+\.\d+/, num).trim()
+    for (const r of directChildren(para, 'r')) r.parentNode?.removeChild(r)
+    const [enPart, cnPart] = splitAtChinese(newText)
+    if (enPart) para.appendChild(makeCalibriRun(enPart, '20', xmlDoc))
+    if (cnPart) para.appendChild(makeCalibriRun(cnPart, '18', xmlDoc, 'Microsoft YaHei'))
+    return
   }
 }
 
@@ -124,34 +170,106 @@ function updateCcCell(tc: Element, amount: number): void {
   }
 }
 
+function stripVMerge(tc: Element): void {
+  const tcPr = directChildren(tc, 'tcPr')[0]
+  if (!tcPr) return
+  for (const vm of directChildren(tcPr, 'vMerge')) tcPr.removeChild(vm)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function setVMerge(tc: Element, restart: boolean, xmlDoc: any): void {
+  let tcPr = directChildren(tc, 'tcPr')[0]
+  if (!tcPr) {
+    tcPr = xmlDoc.createElement('w:tcPr')
+    const firstPara = directChildren(tc, 'p')[0]
+    if (firstPara) tc.insertBefore(tcPr, firstPara)
+    else tc.appendChild(tcPr)
+  }
+  for (const vm of directChildren(tcPr, 'vMerge')) tcPr.removeChild(vm)
+  const vMerge = xmlDoc.createElement('w:vMerge')
+  if (restart) vMerge.setAttribute('w:val', 'restart')
+  tcPr.appendChild(vMerge)
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function clearCellContent(tc: Element, xmlDoc: any): void {
+  for (const p of directChildren(tc, 'p')) p.parentNode?.removeChild(p)
+  tc.appendChild(xmlDoc.createElement('w:p'))
+}
+
+// ── create a new data row with unified font standards ─────────────────────────
+// Standard format: EN=Calibri 10pt, CN=Microsoft YaHei 9pt
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function createMainTableRow(
+  numText: string,
+  descEN: string, descCN: string,
+  feeLines: string[],
+  referenceRow: Element,
+  xmlDoc: any,
+): Element {
+  const newRow = referenceRow.cloneNode(true) as Element
+  const cells = directChildren(newRow, 'tc')
+  if (cells.length < 3) return newRow
+  for (const cell of cells) {
+    stripVMerge(cell)
+    const tcPr = directChildren(cell, 'tcPr')[0]
+    if (tcPr) for (const shd of directChildren(tcPr, 'shd')) tcPr.removeChild(shd)
+  }
+  const trPr = directChildren(newRow, 'trPr')[0]
+  if (trPr) for (const shd of directChildren(trPr, 'shd')) trPr.removeChild(shd)
+
+  // Cell 0: row number (Calibri 10pt)
+  const numCell = cells[0]
+  for (const p of directChildren(numCell, 'p')) p.parentNode?.removeChild(p)
+  if (numText) {
+    const p = xmlDoc.createElement('w:p')
+    p.appendChild(makeCalibriRun(numText, '20', xmlDoc, 'Calibri'))
+    numCell.appendChild(p)
+  }
+
+  // Cell 1: description (EN=Calibri 10pt, CN=Microsoft YaHei 9pt)
+  const descCell = cells[1]
+  for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
+  const p0 = xmlDoc.createElement('w:p')
+  p0.appendChild(makeCalibriRun(descEN, '20', xmlDoc, 'Calibri'))
+  descCell.appendChild(p0)
+  if (descCN) {
+    const p1 = xmlDoc.createElement('w:p')
+    p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei'))
+    descCell.appendChild(p1)
+  }
+
+  // Cell 2: fee lines (Calibri 10pt)
+  const feeCell = cells[2]
+  for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
+  for (const line of feeLines) {
+    const p = xmlDoc.createElement('w:p')
+    p.appendChild(makeCalibriRun(line, '20', xmlDoc, 'Calibri'))
+    feeCell.appendChild(p)
+  }
+
+  return newRow
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function setFeeCellFoc(tc: Element, xmlDoc: any): void {
   const existingParas = directChildren(tc, 'p')
-  const templatePara = existingParas.length > 0 ? existingParas[0].cloneNode(true) as Element : null
-  // Grab a template run so we can clone its w:rPr (font settings) for each new line.
-  const templateRuns = templatePara ? allDescendants(templatePara, 'r') : []
-  const templateRun = templateRuns.length > 0 ? templateRuns[0] : null
-
+  const pPrClone = existingParas.length > 0
+    ? (directChildren(existingParas[0], 'pPr')[0]?.cloneNode(true) ?? null)
+    : null
   for (const p of existingParas) p.parentNode?.removeChild(p)
 
-  const lines = ['F.O.C.', 'Included in package', '不另收费', '(含在报价配套内)']
-  for (const line of lines) {
-    const newPara = templatePara ? templatePara.cloneNode(true) as Element : xmlDoc.createElement('w:p')
-    // Remove all existing runs from the clone; keep w:pPr intact.
-    for (const r of directChildren(newPara, 'r')) r.parentNode?.removeChild(r)
-
-    // Clone a template run to inherit w:rPr (fonts, size, colour) — prevents Word
-    // from guessing a wrong East-Asian font (e.g. Korean) for CJK characters.
-    const run = templateRun
-      ? (templateRun.cloneNode(true) as Element)
-      : xmlDoc.createElement('w:r')
-    // Clear any existing text nodes inside the cloned run, then set new text.
-    for (const t of allDescendants(run, 't')) t.parentNode?.removeChild(t)
-    const t = xmlDoc.createElement('w:t')
-    t.setAttribute('xml:space', 'preserve')
-    t.textContent = line
-    run.appendChild(t)
-    newPara.appendChild(run)
+  // English lines: Calibri 10pt (sz=20); Chinese lines: YaHei 9pt (sz=18) — match content column
+  const lines: [string, string, string][] = [
+    ['F.O.C.',              '20', 'Calibri'],
+    ['Included in package', '20', 'Calibri'],
+    ['不另收费',             '18', 'Microsoft YaHei'],
+    ['(含在报价配套内)',      '18', 'Microsoft YaHei'],
+  ]
+  for (const [line, szVal, font] of lines) {
+    const newPara = xmlDoc.createElement('w:p')
+    if (pPrClone) newPara.appendChild((pPrClone as Node).cloneNode(true))
+    newPara.appendChild(makeCalibriRun(line, szVal, xmlDoc, font))
     tc.appendChild(newPara)
   }
 }
@@ -204,33 +322,34 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
 }
 
 // ── update Table 1 total cell ─────────────────────────────────────────────────
-// The template splits "12,960.00" across many single-char runs.
-// Collect all leading digit/comma/period runs, replace the first with the new
-// total, and remove the rest. Leaves the "(Including secure deposit…)" note intact.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function updateMainTableTotalCell(tc: Element, amount: number, xmlDoc: any): void {
-  const runs = allDescendants(tc, 'r')
-  const numberIdxs: number[] = []
-  for (let i = 0; i < runs.length; i++) {
-    const txt = allDescendants(runs[i], 't').map(t => t.textContent ?? '').join('')
-    if (txt === '') continue  // blank / break run — skip but don't stop
-    if (/^[\d,.]+$/.test(txt)) {
-      numberIdxs.push(i)
-    } else {
-      break  // hit non-numeric text (e.g. "(") — stop collecting
+  const num = fmtNum(amount)
+  for (const para of directChildren(tc, 'p')) {
+    const ts = allDescendants(para, 't')
+    if (ts.length === 0) continue
+    const combined = ts.map(t => t.textContent ?? '').join('')
+    if (!/[\d,]+\.\d+/.test(combined)) continue
+    // Replace all fragmented character runs with a single bold Calibri run
+    for (const r of directChildren(para, 'r')) r.parentNode?.removeChild(r)
+    para.appendChild(makeCalibriRun(num, '20', xmlDoc, 'Calibri', true))
+    // Force left indent to 141 twips (0.25 cm) — same as fee cells above
+    let pPr = directChildren(para, 'pPr')[0]
+    if (!pPr) {
+      pPr = xmlDoc.createElement('w:pPr')
+      para.insertBefore(pPr, para.firstChild)
     }
+    const existingInd = directChildren(pPr, 'ind')[0]
+    if (existingInd) {
+      existingInd.setAttribute('w:left', '141')
+    } else {
+      const ind = xmlDoc.createElement('w:ind')
+      ind.setAttribute('w:left', '141')
+      pPr.appendChild(ind)
+    }
+    return
   }
-  if (numberIdxs.length === 0) { updateFeeCell(tc, amount); return }
-
-  // Replace first number run with the new total string
-  const firstRun = runs[numberIdxs[0]]
-  for (const t of allDescendants(firstRun, 't')) t.parentNode?.removeChild(t)
-  const newT = xmlDoc.createElement('w:t')
-  newT.setAttribute('xml:space', 'preserve')
-  newT.textContent = fmtNum(amount)
-  firstRun.appendChild(newT)
-  // Remove the remaining number fragment runs
-  for (let i = 1; i < numberIdxs.length; i++) runs[numberIdxs[i]].parentNode?.removeChild(runs[numberIdxs[i]])
+  updateFeeCell(tc, amount, xmlDoc)
 }
 
 // ── override cell text (keeps cell/para properties, replaces runs) ────────────
@@ -257,11 +376,12 @@ function insertExtraOptRows(
   focServicesSet: Set<string>,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xmlDoc: any,
+  dataRef?: Element,  // pre-removal data row for cloning (avoids using header as template)
 ): void {
   const EXTRAS = [
-    { key: 'XBRL',  en: 'XBRL Reporting Service',  cn: 'XBRL报告服务' },
-    { key: 'AUDIT', en: 'Auditing Services',         cn: '公司审计' },
-    { key: 'AIS',   en: 'AIS / IR8A Services',       cn: '员工年收入申报' },
+    { key: 'XBRL',  en: 'XBRL Reporting Service', cn: '转换和准备XBRL报告' },
+    { key: 'AUDIT', en: 'Auditing Services',        cn: '公司审计' },
+    { key: 'AIS',   en: 'AIS/IR8A Services',        cn: '员工年收入申报' },
   ]
   const toInsert = EXTRAS.filter(e => sel.has(e.key))
   if (toInsert.length === 0) return
@@ -269,10 +389,10 @@ function insertExtraOptRows(
   const rows = directChildren(tbl, 'tr')
   if (rows.length < 2) return
   const totalRow = rows[rows.length - 1]
-  const templateRow = rows[rows.length - 2]
+  // Use provided pre-removal data row; fallback to second-to-last (may be header if all removed)
+  const templateRow = dataRef ?? rows[rows.length - 2]
 
   for (const extra of toInsert) {
-    const svc = SERVICES.find(s => s.key === extra.key)
     const newRow = templateRow.cloneNode(true) as Element
     const cells = directChildren(newRow, 'tc')
     if (cells.length < 2) continue
@@ -282,19 +402,49 @@ function insertExtraOptRows(
       if (/^\d+$/.test((t.textContent ?? '').trim())) { t.textContent = '99'; break }
     }
 
-    // Service name cell
-    overrideFirstParaText(cells[1], `${extra.en}  ${extra.cn}`, xmlDoc)
-
-    // Fee cell
-    let feeText: string
-    if (focServicesSet.has(extra.key)) {
-      feeText = 'F.O.C. / 不另收费'
-    } else if (feeOv[extra.key] !== undefined) {
-      feeText = fmtSGD(feeOv[extra.key])
-    } else {
-      feeText = svc?.fee_type === 'bundled' ? 'Bundled / 含在配套内' : 'On Quote / 按实报价'
+    // --- Service name cell (cells[1]) ---
+    // Standard format: EN=Calibri 10pt, CN=Microsoft YaHei 9pt
+    const svcParas = directChildren(cells[1], 'p')
+    for (let i = svcParas.length - 1; i >= 2; i--) {
+      svcParas[i].parentNode?.removeChild(svcParas[i])
     }
-    overrideFirstParaText(cells[cells.length - 1], feeText, xmlDoc)
+
+    // Para[0]: English name (Calibri 10pt)
+    if (svcParas.length >= 1) {
+      for (const r of directChildren(svcParas[0], 'r')) r.parentNode?.removeChild(r)
+      svcParas[0].appendChild(makeCalibriRun(extra.en, '20', xmlDoc, 'Calibri'))
+    }
+
+    // Para[1]: Chinese name (Microsoft YaHei 9pt)
+    if (svcParas.length >= 2) {
+      for (const r of directChildren(svcParas[1], 'r')) r.parentNode?.removeChild(r)
+      svcParas[1].appendChild(makeCalibriRun(extra.cn, '18', xmlDoc, 'Microsoft YaHei'))
+    }
+
+    // --- Fee cell (cells[cells.length - 1]) ---
+    const feeCell = cells[cells.length - 1]
+    const svc = SERVICES.find(s => s.key === extra.key)
+    const hasFeeOverride = feeOv[extra.key] !== undefined
+    // bundled/foc services (e.g. AIS) are excluded from focServicesSet by the frontend,
+    // so check fee_type directly to detect the "no SGD override → show F.O.C." case.
+    const isFocDisplay = focServicesSet.has(extra.key) ||
+      (!hasFeeOverride && (svc?.fee_type === 'bundled' || svc?.fee_type === 'foc'))
+
+    if (isFocDisplay) {
+      setFeeCellFoc(feeCell, xmlDoc)
+    } else {
+      // Replace fee paragraphs with unified font (Calibri 10pt for EN/numbers)
+      const existingFeeParas = directChildren(feeCell, 'p')
+      for (const p of existingFeeParas) p.parentNode?.removeChild(p)
+      const newFeePara = xmlDoc.createElement('w:p')
+      if (hasFeeOverride) {
+        newFeePara.appendChild(makeCalibriRun(fmtNum(feeOv[extra.key]), '20', xmlDoc, 'Calibri'))
+      } else {
+        newFeePara.appendChild(makeCalibriRun('On Quote / ', '20', xmlDoc, 'Calibri'))
+        newFeePara.appendChild(makeCalibriRun('按实报价', '18', xmlDoc, 'Microsoft YaHei'))
+      }
+      feeCell.appendChild(newFeePara)
+    }
 
     tbl.insertBefore(newRow, totalRow)
   }
@@ -349,10 +499,15 @@ function removeServiceSections(body: Element, selected: Set<string>): void {
     }
   }
 
+  // SECRETARIAL/ADDRESS sections should be kept if EITHER the T1 or T2 version is selected
+  const COUNTERPART: Record<string, string> = { SECRETARIAL: 'SECRETARIAL2', ADDRESS: 'ADDRESS2' }
+
   const toDelete: Element[] = []
   for (let hi = 0; hi < headings.length; hi++) {
     const [svcKey, startI] = headings[hi]
-    if (!selected.has(svcKey)) {
+    const counterpart = COUNTERPART[svcKey]
+    const keep = selected.has(svcKey) || (counterpart != null && selected.has(counterpart))
+    if (!keep) {
       const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
       for (let j = startI; j < endI; j++) toDelete.push(paras[j])
     }
@@ -361,6 +516,8 @@ function removeServiceSections(body: Element, selected: Set<string>): void {
 }
 
 // ── renumber table rows ───────────────────────────────────────────────────────
+// Handles both template elements (localName='t', parsed from XML) and
+// dynamically created elements (localName='w:t', from createElement).
 
 function renumberTableRows(tbl: Element): void {
   let counter = 1
@@ -368,14 +525,17 @@ function renumberTableRows(tbl: Element): void {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
     const numCell = cells[0]
-    const num = cellText(numCell).trim()
-    // Only renumber cells that contain a plain integer (skip "No." header, empty cells, Total rows)
-    if (/^\d+$/.test(num)) {
-      for (const t of allDescendants(numCell, 't')) {
-        if (/^\d+$/.test((t.textContent ?? '').trim())) {
-          t.textContent = String(counter++)
-          break
-        }
+    // Collect <w:t> from both template rows (localName='t') and dynamic rows (localName='w:t')
+    const allT: Element[] = [
+      ...allDescendants(numCell, 't'),
+      ...allDescendants(numCell, 'w:t'),
+    ]
+    const combined = allT.map(t => t.textContent ?? '').join('')
+    if (!/^\d+$/.test(combined.trim())) continue
+    for (const t of allT) {
+      if (/^\d+$/.test((t.textContent ?? '').trim())) {
+        t.textContent = String(counter++)
+        break
       }
     }
   }
@@ -391,10 +551,6 @@ function processMainTable(
   xmlDoc: any,
   focServicesSet: Set<string>,
 ): void {
-  const MAIN_FEES: Record<string, number> = {
-    INCORP: 900, SECRETARIAL: 700, ADDRESS: 360, ND: 3000, EP: 4000, BANK: 1000,
-  }
-
   // Find heading immediately before tbl — needed when removing the table.
   const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
     .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
@@ -404,9 +560,8 @@ function processMainTable(
     if (bodyKids[i].localName === 'p') { headingBeforeTbl = bodyKids[i]; break }
   }
 
-  // Remove table + heading only when no main-table service is selected at all.
-  // (Do NOT use newTotal === 0 — F.O.C. services are selected but contribute 0 to total.)
-  const anyMainSelected = SERVICES.some(s => s.table === 'main' && sel.has(s.key))
+  // Remove table + heading only when no real main-table service is selected.
+  const anyMainSelected = SERVICES.some(s => s.table === 'main' && s.fee_type !== 'discount' && sel.has(s.key))
   if (!anyMainSelected) {
     tbl.parentNode?.removeChild(tbl)
     headingBeforeTbl?.parentNode?.removeChild(headingBeforeTbl)
@@ -416,20 +571,34 @@ function processMainTable(
   // The template already contains a built-in <w:br type="page"/> paragraph immediately
   // before the "Company Incorporation..." heading, so no additional page break is needed here.
 
-  // Calculate total (F.O.C. services excluded — shown in their cell but not summed).
+  // Calculate total dynamically from SERVICES array.
   let newTotal = 0
-  for (const [k, v] of Object.entries(MAIN_FEES)) {
-    if (sel.has(k) && !focServicesSet.has(k)) newTotal += feeOv[k] ?? v
+  for (const svc of SERVICES) {
+    if (svc.table !== 'main' || !sel.has(svc.key)) continue
+    if (['foc', 'bundled', 'discount'].includes(svc.fee_type)) continue
+    if (focServicesSet.has(svc.key)) continue
+    newTotal += feeOv[svc.key] ?? svc.fee ?? 0
   }
+  // FOC/bundled services with SGD override
   for (const svc of SERVICES) {
     if (svc.table === 'main' && ['foc', 'bundled'].includes(svc.fee_type) && sel.has(svc.key)) {
       const extra = feeOv[svc.key]
       if (extra && !focServicesSet.has(svc.key)) newTotal += extra
     }
   }
-
-  // Deposit is always 3000 (or override) when ND is selected — template sub-row is kept via mapping.
+  // ND deposit sub-row
   if (sel.has('ND') && !focServicesSet.has('ND')) newTotal += feeOv['ND_DEPOSIT'] ?? 3000
+  // Goodwill discount — subtract from total
+  const goodwillDiscount = sel.has('GOODWILL_DISC') ? (feeOv['GOODWILL_DISC'] ?? 0) : 0
+  if (goodwillDiscount > 0) newTotal = Math.max(0, newTotal - goodwillDiscount)
+
+  // Capture a valid data row BEFORE removal (digit in first cell = real data row)
+  let dataRefRow: Element | null = null
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length < 3) continue
+    if (/^\d+$/.test(cellText(cells[0]).trim())) { dataRefRow = row; break }
+  }
 
   const rowsToRemove: Element[] = []
   for (const row of directChildren(tbl, 'tr')) {
@@ -439,23 +608,105 @@ function processMainTable(
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
+  const FOC_MERGE_RIDS = new Set(['MAIN_POST_EP', 'MAIN_CORPPASS', 'MAIN_PDPA', 'MAIN_CORP_CONSULT'])
+  const FOC_RID_TO_KEY: Record<string, string> = {
+    MAIN_POST_EP: 'POST_EP', MAIN_CORPPASS: 'CORPPASS',
+    MAIN_PDPA: 'PDPA', MAIN_CORP_CONSULT: 'CORP_CONSULT',
+  }
+
+  // Step 1 — set fee content for every surviving row.
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
     const rid = findRowId(cells, 'main')
     if (rid === 'MAIN_ND_DEPOSIT') {
-      // Template already contains this sub-row; just update fee if overridden.
       const depositAmt = feeOv['ND_DEPOSIT']
-      if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt)
+      if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt, xmlDoc)
+    } else if (rid && FOC_MERGE_RIDS.has(rid)) {
+      const feeCell = cells[cells.length - 1]
+      stripVMerge(feeCell)
+      const svcKey = FOC_RID_TO_KEY[rid]
+      if (svcKey && !focServicesSet.has(svcKey) && feeOv[svcKey] !== undefined) {
+        // Clear cell completely, write just the SGD amount (no F.O.C. block lines)
+        const existingParas = directChildren(feeCell, 'p')
+        const pPrClone = existingParas[0]
+          ? (directChildren(existingParas[0], 'pPr')[0]?.cloneNode(true) ?? null)
+          : null
+        for (const p of existingParas) p.parentNode?.removeChild(p)
+        const newPara = xmlDoc.createElement('w:p')
+        if (pPrClone) newPara.appendChild((pPrClone as Node).cloneNode(true))
+        newPara.appendChild(makeCalibriRun(fmtNum(feeOv[svcKey]), '20', xmlDoc))
+        feeCell.appendChild(newPara)
+      } else {
+        setFeeCellFoc(feeCell, xmlDoc)
+      }
     } else if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc)
         }
       }
+    }
+  }
+
+  // ── Insert dynamic rows (CERT, DP_MAIN, LOC_MAIN, GOODWILL_DISC) before Total row ──
+  {
+    const allRowsNow = directChildren(tbl, 'tr')
+    const totalRowEl = allRowsNow[allRowsNow.length - 1]
+    const refRow = dataRefRow ?? (allRowsNow.length >= 2 ? allRowsNow[allRowsNow.length - 2] : allRowsNow[0])
+
+    // Count how many template rows will be numbered 1..N by renumberTableRows.
+    // Dynamic rows created with createElement have localName='w:t' (not 't'), so
+    // renumberTableRows cannot find their text nodes — we must pre-assign numbers here.
+    let templateDigitCount = 0
+    for (const row of allRowsNow) {
+      const c = directChildren(row, 'tc')
+      if (c.length > 0 && /^\d+$/.test(cellText(c[0]).trim())) templateDigitCount++
+    }
+
+    type DynRow = { svcKey: string; numPlaceholder: string; descEN: string; descCN: string; feeLines: string[] }
+    const dynRows: DynRow[] = [
+      {
+        svcKey: 'CERT',
+        numPlaceholder: '1',
+        descEN: 'Purchase of Certificate of Incorporation',
+        descCN: '购买公司注册证书',
+        feeLines: [fmtNum(feeOv['CERT'] ?? 100)],
+      },
+      {
+        svcKey: 'DP_MAIN',
+        numPlaceholder: '1',
+        descEN: 'DP Application',
+        descCN: '家属准证申请',
+        feeLines: [fmtNum(feeOv['DP_MAIN'] ?? 600) + '/person 每位', '(Government fee included 含政府费用)'],
+      },
+      {
+        svcKey: 'LOC_MAIN',
+        numPlaceholder: '1',
+        descEN: 'Letter of Consent (LOC) Application',
+        descCN: '工作许可同意书（LOC）申请',
+        feeLines: [fmtNum(feeOv['LOC_MAIN'] ?? 200) + '/person 每位'],
+      },
+    ]
+    if (goodwillDiscount > 0) {
+      dynRows.push({
+        svcKey: 'GOODWILL_DISC',
+        numPlaceholder: '',   // empty → renumber skips it
+        descEN: 'Goodwill Discount',
+        descCN: '折扣-整体配套',
+        feeLines: ['-' + fmtNum(goodwillDiscount)],
+      })
+    }
+
+    let dynSeq = templateDigitCount + 1
+    for (const { svcKey, numPlaceholder, descEN, descCN, feeLines } of dynRows) {
+      if (!sel.has(svcKey)) continue
+      const rowNum = numPlaceholder ? String(dynSeq++) : ''
+      const newRow = createMainTableRow(rowNum, descEN, descCN, feeLines, refRow, xmlDoc)
+      tbl.insertBefore(newRow, totalRowEl)
     }
   }
 
@@ -465,7 +716,56 @@ function processMainTable(
   if (finalRows.length > 0) {
     const lastRow = finalRows[finalRows.length - 1]
     const lastCells = directChildren(lastRow, 'tc')
-    if (lastCells.length > 0) updateMainTableTotalCell(lastCells[lastCells.length - 1], newTotal, xmlDoc)
+    if (lastCells.length > 0) {
+      const totalCell = lastCells[lastCells.length - 1]
+      updateMainTableTotalCell(totalCell, newTotal, xmlDoc)
+      // Set vertical alignment to center on the total fee cell
+      {
+        let tcPr = directChildren(totalCell, 'tcPr')[0]
+        if (!tcPr) { tcPr = xmlDoc.createElement('w:tcPr'); totalCell.insertBefore(tcPr, totalCell.firstChild) }
+        for (const v of directChildren(tcPr, 'vAlign')) tcPr.removeChild(v)
+        const vAlign = xmlDoc.createElement('w:vAlign')
+        vAlign.setAttribute('w:val', 'center')
+        tcPr.appendChild(vAlign)
+      }
+      // "(Including secure deposit 含押金X,XXX.00)" — keep only when ND selected, update amount
+      for (const p of directChildren(totalCell, 'p')) {
+        if (!paraText(p).includes('Including secure deposit') && !paraText(p).includes('含押金')) continue
+        if (!sel.has('ND')) {
+          p.parentNode?.removeChild(p)
+        } else {
+          // Update deposit amount to reflect the actual ND_DEPOSIT override
+          const depositAmt = feeOv['ND_DEPOSIT'] ?? 3000
+          for (const t of allDescendants(p, 't')) {
+            const txt = t.textContent ?? ''
+            if (/[\d,]+\.\d+/.test(txt)) {
+              t.textContent = txt.replace(/[\d,]+\.\d+/, fmtNum(depositAmt))
+              break
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// ── Table 2 total cell — English Calibri 11pt (sz=22), Chinese Calibri 10pt (sz=20) ──────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function updateOptTotalCell(tc: Element, amount: number, xmlDoc: any): void {
+  const num = fmtNum(amount)
+  for (const para of allDescendants(tc, 'p')) {
+    const ts = allDescendants(para, 't')
+    if (ts.length === 0) continue
+    const combined = ts.map(t => t.textContent ?? '').join('')
+    if (!combined.trim()) continue
+    for (const r of directChildren(para, 'r')) r.parentNode?.removeChild(r)
+    const newText = /[\d,]+\.\d+/.test(combined)
+      ? combined.replace(/[\d,]+\.\d+/, num).trim()
+      : combined.trim()
+    const [enPart, cnPart] = splitAtChinese(newText)
+    if (enPart) para.appendChild(makeCalibriRun(enPart, '22', xmlDoc, 'Calibri', true))
+    if (cnPart) para.appendChild(makeCalibriRun(cnPart, '20', xmlDoc, 'Calibri', true))
   }
 }
 
@@ -480,8 +780,16 @@ function processOptTable(
   focServicesSet: Set<string>,
 ): void {
   const OPT_FEES: Record<string, number> = {
-    ACCOUNTS: 1500, SECRETARIAL: 700, ADDRESS: 360, AR: 60,
+    ACCOUNTS: 1500, SECRETARIAL2: 700, ADDRESS2: 360, AR: 60,
     UNAUDITEDFS: 700, COMPANYTAX: 700, PERSONALTAX: 300, PAYROLL: 600,
+  }
+
+  // Capture a valid data row BEFORE removal to use as clone reference in insertExtraOptRows
+  let optDataRef: Element | undefined = undefined
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length < 2) continue
+    if (/^\d+$/.test(cellText(cells[0]).trim())) { optDataRef = row; break }
   }
 
   const rowsToRemove: Element[] = []
@@ -534,6 +842,24 @@ function processOptTable(
     return
   }
 
+  // TABLE 2 is being kept — remove the page-break paragraph before its heading
+  // so it flows directly after TABLE 1 with one blank line instead of a new page.
+  for (const p of directChildren(body, 'p')) {
+    const t = paraText(p)
+    if (t.includes('Indicative Fees for Ongoing') || t.includes('公司后期维护') || t.includes('年度维护')) {
+      const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+        .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+      const idx = bodyKids.indexOf(p)
+      if (idx > 0) {
+        const prev = bodyKids[idx - 1]
+        if (prev.localName === 'p' && allDescendants(prev, 'br').some(br => (br as Element).getAttribute('w:type') === 'page')) {
+          prev.parentNode?.removeChild(prev)
+        }
+      }
+      break
+    }
+  }
+
   let newTotal = 0
   for (const [k, v] of Object.entries(OPT_FEES)) {
     if (sel.has(k) && !focServicesSet.has(k)) newTotal += feeOv[k] ?? v
@@ -555,20 +881,20 @@ function processOptTable(
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc)
         }
       }
     }
   }
 
-  insertExtraOptRows(tbl, sel, feeOv, focServicesSet, xmlDoc)
+  insertExtraOptRows(tbl, sel, feeOv, focServicesSet, xmlDoc, optDataRef)
   renumberTableRows(tbl)
 
   const rows = directChildren(tbl, 'tr')
   if (rows.length > 0) {
     const lastRow = rows[rows.length - 1]
     const lastCells = directChildren(lastRow, 'tc')
-    if (lastCells.length > 0) updateFeeCell(lastCells[lastCells.length - 1], newTotal)
+    if (lastCells.length > 0) updateOptTotalCell(lastCells[lastCells.length - 1], newTotal, xmlDoc)
   }
 }
 
@@ -581,6 +907,14 @@ function processEpTable(
   xmlDoc: any,
   focServicesSet: Set<string>,
 ): void {
+  // Capture a valid data row BEFORE removal — used as reference for dynamic row cloning.
+  // Must be captured here (pre-removal) to guarantee a proper template row is available.
+  let epPreRef: Element | null = null
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length >= 2 && /^\d+$/.test(cellText(cells[0]).trim())) { epPreRef = row; break }
+  }
+
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
   for (const row of directChildren(tbl, 'tr')) {
@@ -595,7 +929,8 @@ function processEpTable(
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
-  if (dataRowsKept === 0) {
+  // Keep table if any template rows remain OR if DP_RENEW (dynamic) is selected
+  if (dataRowsKept === 0 && !sel.has('DP_RENEW')) {
     tbl.parentNode?.removeChild(tbl)
     return
   }
@@ -610,18 +945,108 @@ function processEpTable(
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey])
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc)
         }
       }
+    }
+  }
+
+  // Insert DP_RENEW dynamically after the DP Application row
+  if (sel.has('DP_RENEW')) {
+    const epRows = directChildren(tbl, 'tr')
+    const refRow = epPreRef ?? epRows[epRows.length - 1]
+    // Find DP Application row to insert after
+    let dpRow: Element | null = null
+    for (const row of epRows) {
+      const cells = directChildren(row, 'tc')
+      if (findRowId(cells, 'ep') === 'EP_DP') { dpRow = row; break }
+    }
+    const insertAfter = dpRow ?? epRows[epRows.length - 1]
+    // Count existing template digit rows to assign the correct sequential number
+    let epDigitCount = 0
+    for (const row of epRows) {
+      const c = directChildren(row, 'tc')
+      if (c.length > 0 && /^\d+$/.test(cellText(c[0]).trim())) epDigitCount++
+    }
+    const newRow = createMainTableRow(
+      String(epDigitCount + 1),
+      'DP renewal service',
+      'DP 续约（每2年一次）',
+      [fmtNum(feeOv['DP_RENEW'] ?? 600) + '/person 每位', '(Government fee included 含政府费用)'],
+      refRow,
+      xmlDoc,
+    )
+    if (insertAfter.nextSibling) {
+      tbl.insertBefore(newRow, insertAfter.nextSibling)
+    } else {
+      tbl.appendChild(newRow)
     }
   }
 
   renumberTableRows(tbl)
 }
 
+// ── reformat Qty cells in changes table ──────────────────────────────────────
+
+const QTY_PHRASES: Array<[RegExp, string, string]> = [
+  [/Per\s+Transaction/i, 'Per Transaction', '每次'],
+  [/One[\s-]Off/i,       'One-Off',         '一次性'],
+  [/Per\s+Lodgement/i,   'Per Lodgement',   '每次登记'],
+  [/Per\s+Set/i,         'Per Set',         '每份'],
+  [/Per\s+Time/i,        'Per Time',        '每次'],
+]
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function reformatQtyCells(tbl: Element, xmlDoc: any): void {
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length < 4) continue
+    const qtyCell = cells[3]
+    const text = cellText(qtyCell)
+
+    let enText: string | null = null
+    let cnText: string | null = null
+    for (const [regex, en, cn] of QTY_PHRASES) {
+      if (regex.test(text)) { enText = en; cnText = cn; break }
+    }
+    if (!enText || !cnText) continue
+
+    const existingParas = directChildren(qtyCell, 'p')
+    const pPrClone = existingParas.length > 0
+      ? (directChildren(existingParas[0], 'pPr')[0]?.cloneNode(true) ?? null)
+      : null
+    for (const p of existingParas) p.parentNode?.removeChild(p)
+
+    const buildPara = (lineText: string, eastAsia: boolean) => {
+      const p = xmlDoc.createElement('w:p')
+      if (pPrClone) p.appendChild(pPrClone.cloneNode(true))
+      const rPr = xmlDoc.createElement('w:rPr')
+      const rFonts = xmlDoc.createElement('w:rFonts')
+      rFonts.setAttribute('w:ascii', 'Calibri')
+      rFonts.setAttribute('w:hAnsi', 'Calibri')
+      if (eastAsia) rFonts.setAttribute('w:eastAsia', 'Microsoft YaHei')
+      rPr.appendChild(rFonts)
+      const sz = xmlDoc.createElement('w:sz'); sz.setAttribute('w:val', '14'); rPr.appendChild(sz)
+      const szCs = xmlDoc.createElement('w:szCs'); szCs.setAttribute('w:val', '14'); rPr.appendChild(szCs)
+      const r = xmlDoc.createElement('w:r')
+      r.appendChild(rPr)
+      const t = xmlDoc.createElement('w:t')
+      t.setAttribute('xml:space', 'preserve')
+      t.textContent = lineText
+      r.appendChild(t)
+      p.appendChild(r)
+      return p
+    }
+
+    qtyCell.appendChild(buildPara(enText, false))
+    qtyCell.appendChild(buildPara(cnText, true))
+  }
+}
+
 // ── process company changes table ─────────────────────────────────────────────
 
-function processChangesTable(tbl: Element, ccOverrides: Record<string, number>): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, xmlDoc: any): void {
   const rows = directChildren(tbl, 'tr')
   for (const item of CC_ITEMS) {
     let val = ccOverrides[item.key]
@@ -635,19 +1060,137 @@ function processChangesTable(tbl: Element, ccOverrides: Record<string, number>):
       if (cells.length > 4) updateCcCell(cells[4], val)
     }
   }
+  reformatQtyCells(tbl, xmlDoc)
 }
 
-// ── add appendix spacing ──────────────────────────────────────────────────────
+// ── add page break before appendix (changes table) ───────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function addAppendixSpacing(body: Element, xmlDoc: any): void {
   for (const p of directChildren(body, 'p')) {
     if (paraText(p).includes('For any other post-incorporation')) {
-      for (let i = 0; i < 3; i++) {
-        const newP = xmlDoc.createElement('w:p')
-        body.insertBefore(newP, p)
+      // Check if a page-break paragraph already exists immediately before this heading
+      const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+        .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+      const idx = bodyKids.indexOf(p)
+      const prevHasPageBreak = idx > 0 &&
+        allDescendants(bodyKids[idx - 1], 'br').some(br => (br as Element).getAttribute('w:type') === 'page')
+      if (!prevHasPageBreak) {
+        const pageBreakP = xmlDoc.createElement('w:p')
+        const pageBreakR = xmlDoc.createElement('w:r')
+        const pageBreakBr = xmlDoc.createElement('w:br')
+        pageBreakBr.setAttribute('w:type', 'page')
+        pageBreakR.appendChild(pageBreakBr)
+        pageBreakP.appendChild(pageBreakR)
+        body.insertBefore(pageBreakP, p)
       }
       break
+    }
+  }
+}
+
+// ── normalize spacing before "General" section ───────────────────────────────
+// The template has 5 blank paragraphs before "General"; ensure exactly 2.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function normalizeGeneralSpacing(body: Element, xmlDoc: any): void {
+  const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
+    .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
+
+  let generalEl: Element | null = null
+  let genIdx = -1
+  for (let i = 0; i < bodyKids.length; i++) {
+    if (bodyKids[i].localName === 'p' && paraText(bodyKids[i]).trim() === 'General') {
+      generalEl = bodyKids[i]; genIdx = i; break
+    }
+  }
+  if (!generalEl) return
+
+  // Remove consecutive blank paragraphs immediately before "General"
+  for (let i = genIdx - 1; i >= 0; i--) {
+    if (bodyKids[i].localName !== 'p') break
+    if (paraText(bodyKids[i]).trim() === '') {
+      bodyKids[i].parentNode?.removeChild(bodyKids[i])
+    } else {
+      break
+    }
+  }
+
+  // Insert exactly 2 blank paragraphs
+  for (let j = 0; j < 2; j++) {
+    const newP = xmlDoc.createElement('w:p')
+    body.insertBefore(newP, generalEl)
+  }
+}
+
+// ── table column-width sync helpers ──────────────────────────────────────────
+
+function readColWidths(tbl: Element): Array<{ w: string; type: string }> {
+  const rows = directChildren(tbl, 'tr')
+  if (rows.length === 0) return []
+  const cells = directChildren(rows[0], 'tc')
+  return cells.map(tc => {
+    const tcPr = directChildren(tc, 'tcPr')[0]
+    const tcW = tcPr ? directChildren(tcPr, 'tcW')[0] : undefined
+    return {
+      w: tcW?.getAttribute('w:w') ?? '0',
+      type: tcW?.getAttribute('w:type') ?? 'dxa',
+    }
+  })
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyColWidths(tbl: Element, colWidths: Array<{ w: string; type: string }>, xmlDoc: any): void {
+  if (colWidths.length === 0) return
+
+  // Update overall table width
+  const tblPr = directChildren(tbl, 'tblPr')[0]
+  if (tblPr) {
+    const totalDxa = colWidths.reduce((s, c) => s + parseInt(c.w, 10), 0)
+    for (const tw of directChildren(tblPr, 'tblW')) tblPr.removeChild(tw)
+    const newTblW = xmlDoc.createElement('w:tblW')
+    newTblW.setAttribute('w:w', String(totalDxa))
+    newTblW.setAttribute('w:type', 'dxa')
+    tblPr.appendChild(newTblW)
+  }
+
+  // Update grid column definitions
+  const tblGrid = directChildren(tbl, 'tblGrid')[0]
+  if (tblGrid) {
+    for (const gc of directChildren(tblGrid, 'gridCol')) tblGrid.removeChild(gc)
+    for (const col of colWidths) {
+      const gridCol = xmlDoc.createElement('w:gridCol')
+      gridCol.setAttribute('w:w', col.w)
+      tblGrid.appendChild(gridCol)
+    }
+  }
+
+  // Update per-cell widths; sum widths for horizontally merged cells (gridSpan)
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    let colIdx = 0
+    for (const cell of cells) {
+      if (colIdx >= colWidths.length) break
+      let tcPr = directChildren(cell, 'tcPr')[0]
+      if (!tcPr) {
+        tcPr = xmlDoc.createElement('w:tcPr')
+        const fp = directChildren(cell, 'p')[0]
+        if (fp) cell.insertBefore(tcPr, fp)
+        else cell.appendChild(tcPr)
+      }
+      const gridSpanEl = directChildren(tcPr, 'gridSpan')[0]
+      const gridSpan = gridSpanEl ? parseInt(gridSpanEl.getAttribute('w:val') ?? '1', 10) : 1
+      let mergedW = 0
+      for (let j = colIdx; j < Math.min(colIdx + gridSpan, colWidths.length); j++) {
+        mergedW += parseInt(colWidths[j].w, 10)
+      }
+      for (const tw of directChildren(tcPr, 'tcW')) tcPr.removeChild(tw)
+      const newTcW = xmlDoc.createElement('w:tcW')
+      newTcW.setAttribute('w:w', String(mergedW))
+      newTcW.setAttribute('w:type', 'dxa')
+      const fc = tcPr.childNodes[0]
+      if (fc) tcPr.insertBefore(newTcW, fc as Element)
+      else tcPr.appendChild(newTcW)
+      colIdx += gridSpan
     }
   }
 }
@@ -684,12 +1227,21 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   }
 
   const tables = directChildren(body, 'tbl')
+  // Snapshot TABLE 2 column widths from the template before any processing
+  const tbl2ColWidths = tables.length >= 2 ? readColWidths(tables[1]) : []
+
   if (tables.length >= 1) processMainTable(body, tables[0], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
   if (tables.length >= 2) processOptTable(body, tables[1], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
   if (tables.length >= 3) processEpTable(tables[2], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
-  if (tables.length >= 4) processChangesTable(tables[3], input.ccOverrides)
+  if (tables.length >= 4) processChangesTable(tables[3], input.ccOverrides, xmlDoc)
+
+  // Align TABLE 1 column widths to TABLE 2 (TABLE 2 is the baseline; TABLE 1 adapts)
+  if (tbl2ColWidths.length > 0 && tables.length >= 1 && tables[0].parentNode) {
+    applyColWidths(tables[0], tbl2ColWidths, xmlDoc)
+  }
 
   addAppendixSpacing(body, xmlDoc)
+  normalizeGeneralSpacing(body, xmlDoc)
 
   const serializer = new XMLSerializer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
