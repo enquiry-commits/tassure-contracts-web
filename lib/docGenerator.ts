@@ -1033,8 +1033,24 @@ function processEpTable(
       const feeCell = cells[2]
       for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
 
+      // Set cell vertical alignment to top
+      let tcPr = directChildren(feeCell, 'tcPr')[0]
+      if (!tcPr) {
+        tcPr = xmlDoc.createElement('w:tcPr')
+        feeCell.insertBefore(tcPr, feeCell.firstChild)
+      }
+      for (const va of directChildren(tcPr, 'vAlign')) tcPr.removeChild(va)
+      const vAlign = xmlDoc.createElement('w:vAlign')
+      vAlign.setAttribute('w:val', 'top')
+      tcPr.appendChild(vAlign)
+
       // Line 1: "600.00/person 每位"
       const p1 = xmlDoc.createElement('w:p')
+      const pPr1 = xmlDoc.createElement('w:pPr')
+      const jc1 = xmlDoc.createElement('w:jc')
+      jc1.setAttribute('w:val', 'left')
+      pPr1.appendChild(jc1)
+      p1.appendChild(pPr1)
       const dpAmount = fmtNum(feeOv['DP_RENEW'] ?? 600)
       p1.appendChild(makeCalibriRun(dpAmount + '/person ', '20', xmlDoc, 'Calibri'))
       p1.appendChild(makeCalibriRun('每位', '18', xmlDoc, 'Microsoft YaHei'))
@@ -1042,11 +1058,21 @@ function processEpTable(
 
       // Line 2: "(Government fee included"
       const p2 = xmlDoc.createElement('w:p')
+      const pPr2 = xmlDoc.createElement('w:pPr')
+      const jc2 = xmlDoc.createElement('w:jc')
+      jc2.setAttribute('w:val', 'left')
+      pPr2.appendChild(jc2)
+      p2.appendChild(pPr2)
       p2.appendChild(makeCalibriRun('(Government fee included', '20', xmlDoc, 'Calibri'))
       feeCell.appendChild(p2)
 
       // Line 3: "含政府费用)"
       const p3 = xmlDoc.createElement('w:p')
+      const pPr3 = xmlDoc.createElement('w:pPr')
+      const jc3 = xmlDoc.createElement('w:jc')
+      jc3.setAttribute('w:val', 'left')
+      pPr3.appendChild(jc3)
+      p3.appendChild(pPr3)
       p3.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
       feeCell.appendChild(p3)
     }
