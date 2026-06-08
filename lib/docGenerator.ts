@@ -1206,11 +1206,12 @@ function processEpTable(
       vAlign.setAttribute('w:val', 'top')
       tcPr.appendChild(vAlign)
 
-      // Now delete all paragraphs (repeat to ensure all are removed)
-      let paras = directChildren(feeCell, 'p')
-      while (paras.length > 0) {
-        for (const p of paras) p.parentNode?.removeChild(p)
-        paras = directChildren(feeCell, 'p')
+      // Delete ALL child nodes except tcPr (books, paragraphs, etc.)
+      for (let i = feeCell.childNodes.length - 1; i >= 0; i--) {
+        const child = feeCell.childNodes[i] as Element
+        if (child.nodeType === 1 && child.localName !== 'tcPr') {
+          feeCell.removeChild(child)
+        }
       }
 
       // Line 1: "600.00/person 每位"
