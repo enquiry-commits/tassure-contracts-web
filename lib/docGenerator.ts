@@ -691,6 +691,18 @@ function processMainTable(
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
     const rid = findRowId(cells, 'main')
+
+    // Clean up description cell for XBRL, AUDIT, AIS services (remove extra blank lines from content)
+    if (['MAIN_XBRL', 'MAIN_AUDIT', 'MAIN_AIS'].includes(rid) && cells.length > 1) {
+      const descCell = cells[1]
+      for (let i = descCell.childNodes.length - 1; i >= 0; i--) {
+        const child = descCell.childNodes[i] as Element
+        if (child.nodeType === 1 && child.localName !== 'tcPr') {
+          descCell.removeChild(child)
+        }
+      }
+    }
+
     if (rid === 'MAIN_ND_DEPOSIT') {
       const depositAmt = feeOv['ND_DEPOSIT']
       if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt, xmlDoc)
