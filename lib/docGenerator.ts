@@ -840,7 +840,13 @@ function processMainTable(
         if (cells.length > 1) {
           const descCell = cells[1]
           let descTcPr = directChildren(descCell, 'tcPr')[0]
-          for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
+          // Completely clear description cell (remove ALL child nodes except tcPr)
+          for (let i = descCell.childNodes.length - 1; i >= 0; i--) {
+            const child = descCell.childNodes[i] as Element
+            if (child.nodeType === 1 && child.localName !== 'tcPr') {
+              descCell.removeChild(child)
+            }
+          }
 
           // EN: Calibri 10pt
           const p0 = xmlDoc.createElement('w:p')
@@ -890,8 +896,13 @@ function processMainTable(
           vAlign.setAttribute('w:val', 'top')
           tcPr.appendChild(vAlign)
 
-          // Now delete paragraphs
-          for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
+          // Completely clear fee cell (remove ALL child nodes except tcPr)
+          for (let i = feeCell.childNodes.length - 1; i >= 0; i--) {
+            const child = feeCell.childNodes[i] as Element
+            if (child.nodeType === 1 && child.localName !== 'tcPr') {
+              feeCell.removeChild(child)
+            }
+          }
 
           for (const line of feeLines) {
             const p = xmlDoc.createElement('w:p')
