@@ -1142,6 +1142,12 @@ function processEpTable(
     )
 
     // Format DP renewal service row: description and fee cells
+    // Remove row height constraint to allow content to size naturally
+    const trPr = directChildren(newRow, 'trPr')[0]
+    if (trPr) {
+      for (const h of directChildren(trPr, 'trHeight')) trPr.removeChild(h)
+    }
+
     const cells = directChildren(newRow, 'tc')
 
     // Format description cell (cells[1]): Microsoft YaHei
