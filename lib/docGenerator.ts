@@ -1197,8 +1197,12 @@ function processEpTable(
       vAlign.setAttribute('w:val', 'top')
       tcPr.appendChild(vAlign)
 
-      // Now delete all paragraphs
-      for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
+      // Now delete all paragraphs (repeat to ensure all are removed)
+      let paras = directChildren(feeCell, 'p')
+      while (paras.length > 0) {
+        for (const p of paras) p.parentNode?.removeChild(p)
+        paras = directChildren(feeCell, 'p')
+      }
 
       // Line 1: "600.00/person 每位"
       const p1 = xmlDoc.createElement('w:p')
