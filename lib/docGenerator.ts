@@ -1354,11 +1354,14 @@ function normalizeGeneralSpacing(body: Element, xmlDoc: any): void {
     }
   }
 
-  // Insert exactly 2 blank paragraphs
-  for (let j = 0; j < 2; j++) {
-    const newP = xmlDoc.createElement('w:p')
-    body.insertBefore(newP, generalEl)
-  }
+  // Insert page break before "General"
+  const pageBreakP = xmlDoc.createElement('w:p')
+  const pageBreakR = xmlDoc.createElement('w:r')
+  const pageBreakBr = xmlDoc.createElement('w:br')
+  pageBreakBr.setAttribute('w:type', 'page')
+  pageBreakR.appendChild(pageBreakBr)
+  pageBreakP.appendChild(pageBreakR)
+  body.insertBefore(pageBreakP, generalEl)
 }
 
 // ── table column-width sync helpers ──────────────────────────────────────────
