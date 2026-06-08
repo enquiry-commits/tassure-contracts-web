@@ -739,13 +739,6 @@ function processMainTable(
     type DynRow = { svcKey: string; numPlaceholder: string; descEN: string; descCN: string; feeLines: string[] }
     const dynRows: DynRow[] = [
       {
-        svcKey: 'PASSRENEWAL',
-        numPlaceholder: '1',
-        descEN: 'EP Renewal Service',
-        descCN: 'EP 续约（每2年一次）',
-        feeLines: [fmtNum(feeOv['PASSRENEWAL'] ?? 1800) + '/person 每位'],
-      },
-      {
         svcKey: 'CERT',
         numPlaceholder: '1',
         descEN: 'Purchase of Certificate of Incorporation',
