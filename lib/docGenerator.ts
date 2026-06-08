@@ -230,6 +230,10 @@ function createMainTableRow(
   const jc = xmlDoc.createElement('w:jc')
   jc.setAttribute('w:val', 'center')
   pPr.appendChild(jc)
+  const spacing = xmlDoc.createElement('w:spacing')
+  spacing.setAttribute('w:before', '0')
+  spacing.setAttribute('w:after', '0')
+  pPr.appendChild(spacing)
   p0num.appendChild(pPr)
   if (numText) {
     p0num.appendChild(makeCalibriRun(numText, '20', xmlDoc, 'Calibri'))
@@ -240,10 +244,22 @@ function createMainTableRow(
   const descCell = cells[1]
   for (const p of directChildren(descCell, 'p')) p.parentNode?.removeChild(p)
   const p0 = xmlDoc.createElement('w:p')
+  const p0Pr = xmlDoc.createElement('w:pPr')
+  const p0Spacing = xmlDoc.createElement('w:spacing')
+  p0Spacing.setAttribute('w:before', '0')
+  p0Spacing.setAttribute('w:after', '0')
+  p0Pr.appendChild(p0Spacing)
+  p0.appendChild(p0Pr)
   p0.appendChild(makeCalibriRun(descEN, '20', xmlDoc, 'Calibri'))
   descCell.appendChild(p0)
   if (descCN) {
     const p1 = xmlDoc.createElement('w:p')
+    const p1Pr = xmlDoc.createElement('w:pPr')
+    const p1Spacing = xmlDoc.createElement('w:spacing')
+    p1Spacing.setAttribute('w:before', '0')
+    p1Spacing.setAttribute('w:after', '0')
+    p1Pr.appendChild(p1Spacing)
+    p1.appendChild(p1Pr)
     p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei'))
     descCell.appendChild(p1)
   }
@@ -260,6 +276,12 @@ function createMainTableRow(
   let lastInserted: Element | null = null
   for (const line of feeLines) {
     const p = xmlDoc.createElement('w:p')
+    const pPr = xmlDoc.createElement('w:pPr')
+    const spacing = xmlDoc.createElement('w:spacing')
+    spacing.setAttribute('w:before', '0')
+    spacing.setAttribute('w:after', '0')
+    pPr.appendChild(spacing)
+    p.appendChild(pPr)
     p.appendChild(makeCalibriRun(line, '20', xmlDoc, 'Calibri'))
     if (lastInserted) {
       feeCell.insertBefore(p, lastInserted.nextSibling)
