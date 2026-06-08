@@ -691,16 +691,36 @@ function processMainTable(
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
 
-    // Clean up description cells for XBRL, AUDIT, AIS (remove extra blank lines from template content)
+    // Clean up description cells for XBRL, Auditing, AIS (rebuild with single paragraph like DP renewal service)
     if (cells.length > 1) {
-      const descText = cellText(cells[1])
-      if (['XBRL', 'Auditing', 'AIS/IR8A'].some(s => descText.includes(s))) {
-        const descCell = cells[1]
+      const descCell = cells[1]
+      const descText = cellText(descCell)
+      const isXbrl = descText.includes('XBRL')
+      const isAuditing = descText.includes('Auditing')
+      const isAis = descText.includes('AIS/IR8A')
+
+      if (isXbrl || isAuditing || isAis) {
+        let descTcPr = directChildren(descCell, 'tcPr')[0]
+        // Delete ALL child nodes except tcPr
         for (let i = descCell.childNodes.length - 1; i >= 0; i--) {
           const child = descCell.childNodes[i] as Element
           if (child.nodeType === 1 && child.localName !== 'tcPr') {
             descCell.removeChild(child)
           }
+        }
+        // Recreate single paragraph with just the service name
+        const p = xmlDoc.createElement('w:p')
+        const pPr = xmlDoc.createElement('w:pPr')
+        const spacing = xmlDoc.createElement('w:spacing')
+        spacing.setAttribute('w:before', '0')
+        spacing.setAttribute('w:after', '0')
+        pPr.appendChild(spacing)
+        p.appendChild(pPr)
+        p.appendChild(makeCalibriRun(descText.trim(), '20', xmlDoc))
+        if (descTcPr) {
+          descCell.insertBefore(p, descTcPr.nextSibling)
+        } else {
+          descCell.appendChild(p)
         }
       }
     }
