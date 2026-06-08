@@ -1153,6 +1153,12 @@ function processEpTable(
 
       // EN: Microsoft YaHei 9pt
       const p0 = xmlDoc.createElement('w:p')
+      const p0Pr = xmlDoc.createElement('w:pPr')
+      const p0Spacing = xmlDoc.createElement('w:spacing')
+      p0Spacing.setAttribute('w:before', '0')
+      p0Spacing.setAttribute('w:after', '0')
+      p0Pr.appendChild(p0Spacing)
+      p0.appendChild(p0Pr)
       p0.appendChild(makeCalibriRun('DP renewal service', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
       if (descTcPr) {
         descCell.insertBefore(p0, descTcPr.nextSibling)
@@ -1162,6 +1168,12 @@ function processEpTable(
 
       // CN: Microsoft YaHei 9pt
       const p1 = xmlDoc.createElement('w:p')
+      const p1Pr = xmlDoc.createElement('w:pPr')
+      const p1Spacing = xmlDoc.createElement('w:spacing')
+      p1Spacing.setAttribute('w:before', '0')
+      p1Spacing.setAttribute('w:after', '0')
+      p1Pr.appendChild(p1Spacing)
+      p1.appendChild(p1Pr)
       p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
       if (descTcPr) {
         descCell.insertBefore(p1, p0.nextSibling || descTcPr.nextSibling)
