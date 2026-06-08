@@ -1109,6 +1109,19 @@ function processEpTable(
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
+        // Set row height to 1.1cm for PASSRENEWAL (EP renewal service)
+        if (svcKey === 'PASSRENEWAL') {
+          let trPr = directChildren(row, 'trPr')[0]
+          if (!trPr) {
+            trPr = xmlDoc.createElement('w:trPr')
+            row.insertBefore(trPr, row.firstChild)
+          }
+          for (const h of directChildren(trPr, 'trHeight')) trPr.removeChild(h)
+          const trHeight = xmlDoc.createElement('w:trHeight')
+          trHeight.setAttribute('w:val', '624')
+          trHeight.setAttribute('w:type', 'dxa')
+          trPr.appendChild(trHeight)
+        }
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
