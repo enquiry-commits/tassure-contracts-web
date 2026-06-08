@@ -227,7 +227,13 @@ function createMainTableRow(
 
   // Cell 0: row number (Calibri 10pt) — centered
   const numCell = cells[0]
-  for (const p of directChildren(numCell, 'p')) p.parentNode?.removeChild(p)
+  // Completely clear row number cell (remove ALL child nodes except tcPr)
+  for (let i = numCell.childNodes.length - 1; i >= 0; i--) {
+    const child = numCell.childNodes[i] as Element
+    if (child.nodeType === 1 && child.localName !== 'tcPr') {
+      numCell.removeChild(child)
+    }
+  }
   const p0num = xmlDoc.createElement('w:p')
   const pPr = xmlDoc.createElement('w:pPr')
   const jc = xmlDoc.createElement('w:jc')
@@ -275,13 +281,19 @@ function createMainTableRow(
 
   // Cell 2: fee lines (Calibri 10pt)
   const feeCell = cells[2]
-  // Ensure tcPr exists and is first, then delete all paragraphs
+  // Ensure tcPr exists and is first
   let tcPr = directChildren(feeCell, 'tcPr')[0]
   if (!tcPr) {
     tcPr = xmlDoc.createElement('w:tcPr')
     feeCell.insertBefore(tcPr, feeCell.firstChild)
   }
-  for (const p of directChildren(feeCell, 'p')) p.parentNode?.removeChild(p)
+  // Completely clear fee cell (remove ALL child nodes except tcPr)
+  for (let i = feeCell.childNodes.length - 1; i >= 0; i--) {
+    const child = feeCell.childNodes[i] as Element
+    if (child.nodeType === 1 && child.localName !== 'tcPr') {
+      feeCell.removeChild(child)
+    }
+  }
   let lastInserted: Element | null = null
   for (const line of feeLines) {
     const p = xmlDoc.createElement('w:p')
