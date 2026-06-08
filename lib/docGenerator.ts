@@ -690,6 +690,21 @@ function processMainTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
+
+    // Clean up description cells for XBRL, AUDIT, AIS (remove extra blank lines from template content)
+    if (cells.length > 1) {
+      const descText = cellText(cells[1])
+      if (['XBRL', 'Auditing', 'AIS/IR8A'].some(s => descText.includes(s))) {
+        const descCell = cells[1]
+        for (let i = descCell.childNodes.length - 1; i >= 0; i--) {
+          const child = descCell.childNodes[i] as Element
+          if (child.nodeType === 1 && child.localName !== 'tcPr') {
+            descCell.removeChild(child)
+          }
+        }
+      }
+    }
+
     const rid = findRowId(cells, 'main')
     if (rid === 'MAIN_ND_DEPOSIT') {
       const depositAmt = feeOv['ND_DEPOSIT']
