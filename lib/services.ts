@@ -293,9 +293,8 @@ export const SERVICES: Service[] = [
     table_desc: ['Monthly payroll processing, payslip issuance, CPF and Skills Development Levy (SDL) submission  每月薪资处理、薪水单出具、公积金（CPF）及技能发展税（SDL）申报', 'SGD 30 per additional headcount beyond 2 persons  超过2人每增加一人加收SGD 30'],
   },
 
-  // ── TABLE 3 — EP / Work Pass (template rows 1-4) ─────────────────────────────
   {
-    key: 'PASSRENEWAL', cat: 'table3', num: 17,
+    key: 'PASSRENEWAL', cat: 'table1', num: 1,
     en: 'EP Renewal Service', cn: 'EP 续约（每2年一次）',
     fee: 1800, fee_type: 'onetime', fee_str: 'SGD 1,800.00', fee_note: 'Inclusive of Government fee / 含政府费用',
     default: true, content_type: 'paras',
@@ -303,7 +302,7 @@ export const SERVICES: Service[] = [
       ['Work Pass Renewal Service refers to administrative assistance provided for the renewal of work passes issued by the Ministry of Manpower ("MOM"), including Employment Pass ("EP"), S Pass, and Dependant\'s Pass ("DP"), where applicable.', '工作准证续签服务是指协助办理由新加坡人力部（MOM）签发之工作准证续签的行政支持服务，包括就业准证（EP）、S Pass及家属准证（DP）等（如适用）。'],
       ['assist the Company and/or applicant with the renewal process of the relevant work pass, including review and preparation of supporting documents, eligibility assessment and advisory, submission of renewal application to MOM, liaison with relevant authorities, submission of additional documents where required, and administrative support until approval and receipt of the renewed pass card.', '服务提供方将协助公司及/或申请人办理相关工作准证续签程序，包括审核及准备相关申请文件、资格评估及咨询、向MOM提交续签申请、与相关政府机构沟通、在需要时提交补充文件，并提供行政支持直至续签获批及领取新准证卡。'],
     ],
-    table: 'ep',
+    table: 'main',
     table_desc: ['Full EP renewal application process including document preparation and MOM submission (every 2 years)  包括文件准备及向人力部提交的完整EP续签申请流程（每2年一次）'],
   },
   {
