@@ -220,7 +220,10 @@ function createMainTableRow(
     if (tcPr) for (const shd of directChildren(tcPr, 'shd')) tcPr.removeChild(shd)
   }
   const trPr = directChildren(newRow, 'trPr')[0]
-  if (trPr) for (const shd of directChildren(trPr, 'shd')) trPr.removeChild(shd)
+  if (trPr) {
+    for (const shd of directChildren(trPr, 'shd')) trPr.removeChild(shd)
+    for (const h of directChildren(trPr, 'trHeight')) trPr.removeChild(h)
+  }
 
   // Cell 0: row number (Calibri 10pt) — centered
   const numCell = cells[0]
