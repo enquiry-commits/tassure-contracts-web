@@ -844,6 +844,12 @@ function processMainTable(
 
           // EN: Calibri 10pt
           const p0 = xmlDoc.createElement('w:p')
+          const p0Pr = xmlDoc.createElement('w:pPr')
+          const p0Spacing = xmlDoc.createElement('w:spacing')
+          p0Spacing.setAttribute('w:before', '0')
+          p0Spacing.setAttribute('w:after', '0')
+          p0Pr.appendChild(p0Spacing)
+          p0.appendChild(p0Pr)
           p0.appendChild(makeCalibriRun(descEN, '20', xmlDoc, 'Calibri', false, 'Calibri'))
           if (descTcPr) {
             descCell.insertBefore(p0, descTcPr.nextSibling)
@@ -854,6 +860,12 @@ function processMainTable(
           // CN: Microsoft YaHei 9pt (all fonts in this line)
           if (descCN) {
             const p1 = xmlDoc.createElement('w:p')
+            const p1Pr = xmlDoc.createElement('w:pPr')
+            const p1Spacing = xmlDoc.createElement('w:spacing')
+            p1Spacing.setAttribute('w:before', '0')
+            p1Spacing.setAttribute('w:after', '0')
+            p1Pr.appendChild(p1Spacing)
+            p1.appendChild(p1Pr)
             p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
             if (descTcPr) {
               descCell.insertBefore(p1, descTcPr.nextSibling || p0.nextSibling)
@@ -887,6 +899,10 @@ function processMainTable(
             const jc = xmlDoc.createElement('w:jc')
             jc.setAttribute('w:val', 'left')
             pPr.appendChild(jc)
+            const spacing = xmlDoc.createElement('w:spacing')
+            spacing.setAttribute('w:before', '0')
+            spacing.setAttribute('w:after', '0')
+            pPr.appendChild(spacing)
             p.appendChild(pPr)
 
             // Split by Chinese characters to apply different fonts
