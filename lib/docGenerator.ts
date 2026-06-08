@@ -225,16 +225,16 @@ function createMainTableRow(
   // Cell 0: row number (Calibri 10pt) — centered
   const numCell = cells[0]
   for (const p of directChildren(numCell, 'p')) p.parentNode?.removeChild(p)
+  const p0num = xmlDoc.createElement('w:p')
+  const pPr = xmlDoc.createElement('w:pPr')
+  const jc = xmlDoc.createElement('w:jc')
+  jc.setAttribute('w:val', 'center')
+  pPr.appendChild(jc)
+  p0num.appendChild(pPr)
   if (numText) {
-    const p = xmlDoc.createElement('w:p')
-    const pPr = xmlDoc.createElement('w:pPr')
-    const jc = xmlDoc.createElement('w:jc')
-    jc.setAttribute('w:val', 'center')
-    pPr.appendChild(jc)
-    p.appendChild(pPr)
-    p.appendChild(makeCalibriRun(numText, '20', xmlDoc, 'Calibri'))
-    numCell.appendChild(p)
+    p0num.appendChild(makeCalibriRun(numText, '20', xmlDoc, 'Calibri'))
   }
+  numCell.appendChild(p0num)
 
   // Cell 1: description (EN=Calibri 10pt, CN=Microsoft YaHei 9pt)
   const descCell = cells[1]
