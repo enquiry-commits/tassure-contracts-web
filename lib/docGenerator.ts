@@ -1145,11 +1145,17 @@ function processEpTable(
     )
 
     // Format DP renewal service row: description and fee cells
-    // Remove row height constraint to allow content to size naturally
-    const trPr = directChildren(newRow, 'trPr')[0]
-    if (trPr) {
-      for (const h of directChildren(trPr, 'trHeight')) trPr.removeChild(h)
+    // Set row height to 1.1cm (624 twips)
+    let trPr = directChildren(newRow, 'trPr')[0]
+    if (!trPr) {
+      trPr = xmlDoc.createElement('w:trPr')
+      newRow.insertBefore(trPr, newRow.firstChild)
     }
+    for (const h of directChildren(trPr, 'trHeight')) trPr.removeChild(h)
+    const trHeight = xmlDoc.createElement('w:trHeight')
+    trHeight.setAttribute('w:val', '624')
+    trHeight.setAttribute('w:type', 'dxa')
+    trPr.appendChild(trHeight)
 
     const cells = directChildren(newRow, 'tc')
 
