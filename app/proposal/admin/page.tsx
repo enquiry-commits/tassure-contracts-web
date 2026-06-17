@@ -35,8 +35,7 @@ export default function AdminPage() {
           style={{
             fontSize: '18px',
             fontWeight: '800',
-            color: '#1e3a5f',
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif'
+            color: '#1e3a5f'
           }}>
           Admin Dashboard
         </span>

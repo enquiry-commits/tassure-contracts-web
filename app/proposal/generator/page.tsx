@@ -308,8 +308,7 @@ function GeneratePageContent() {
           style={{
             fontSize: '18px',
             fontWeight: '800',
-            color: '#1e3a5f',
-            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif'
+            color: '#1e3a5f'
           }}>
           Tassure Proposal Generator
         </span>
