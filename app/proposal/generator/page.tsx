@@ -289,7 +289,7 @@ function GeneratePageContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* ── Header ────────────────────────────────────────── */}
       <header
         className="flex items-center px-8 gap-3 shrink-0 border-b"

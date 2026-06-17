@@ -16,7 +16,7 @@ export default function AdminPage() {
   }, [router])
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="flex flex-col min-h-screen">
 
       {/* Header — matches generate page */}
       <header
