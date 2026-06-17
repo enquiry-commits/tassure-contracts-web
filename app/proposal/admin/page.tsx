@@ -36,7 +36,7 @@ export default function AdminPage() {
             fontSize: '18px',
             fontWeight: '800',
             color: '#1e3a5f',
-            fontFamily: '刘宇鹏艺术 sans-serif'
+            fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif'
           }}>
           Admin Dashboard
         </span>
