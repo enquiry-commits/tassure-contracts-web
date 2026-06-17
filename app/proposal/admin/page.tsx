@@ -20,14 +20,28 @@ export default function AdminPage() {
 
       {/* Header — matches generate page */}
       <header
-        className="h-16 flex items-center px-6 gap-3 shrink-0 border-b border-[#B0C8E0]"
-        style={{ backgroundColor: '#C8E0F4' }}
+        className="flex items-center px-8 gap-3 shrink-0 border-b"
+        style={{
+          height: '70px',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          borderColor: 'rgba(30, 58, 95, 0.08)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/tassure-logo.png" alt="Tassure" className="h-10 w-auto" />
-        <span className="text-sm text-[#1A3F6F] opacity-70">Admin Dashboard</span>
+        <img src="/tassure-logo.png" alt="Tassure" className="h-[45px] w-auto" />
+        <span
+          className="flex-1"
+          style={{
+            fontSize: '18px',
+            fontWeight: '800',
+            color: '#1e3a5f',
+            fontFamily: '刘宇鹏艺术 sans-serif'
+          }}>
+          Admin Dashboard
+        </span>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <Link
             href="/proposal/generator"
             className="inline-flex items-center gap-2 text-sm font-bold text-white px-5 py-2 rounded-lg transition-colors"

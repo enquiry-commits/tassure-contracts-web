@@ -291,13 +291,30 @@ function GeneratePageContent() {
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ fontFamily: 'system-ui, sans-serif' }}>
       {/* ── Header ────────────────────────────────────────── */}
-      <header className="h-16 flex items-center px-4 gap-3 shrink-0 border-b border-[#B0C8E0]"
-        style={{ backgroundColor: '#C8E0F4' }}>
+      <header
+        className="flex items-center px-8 gap-3 shrink-0 border-b"
+        style={{
+          height: '70px',
+          background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+          borderColor: 'rgba(30, 58, 95, 0.08)',
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        }}>
         {/* Logo */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/tassure-logo.png" alt="Tassure" className="h-10 w-auto" />
-        <span className="text-sm text-[#1A3F6F] opacity-80">Proposal Generator</span>
-        <div className="ml-auto flex gap-2 items-center">
+        <img src="/tassure-logo.png" alt="Tassure" className="h-[45px] w-auto" />
+        {/* Title */}
+        <span
+          className="flex-1"
+          style={{
+            fontSize: '18px',
+            fontWeight: '800',
+            color: '#1e3a5f',
+            fontFamily: '刘宇鹏艺术 sans-serif'
+          }}>
+          Tassure Proposal Generator
+        </span>
+        {/* Admin Dashboard Button */}
+        <div className="flex gap-2 items-center">
           <a href="/proposal/admin"
             className="inline-flex items-center gap-2 text-sm font-bold text-white px-4 py-2 rounded-lg transition-colors hover:opacity-90"
             style={{ backgroundColor: '#1A3F6F' }}>
