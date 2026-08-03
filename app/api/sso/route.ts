@@ -74,12 +74,9 @@ export async function GET(req: NextRequest) {
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposal/generator`,
-      },
     })
 
-    if (linkError || !data?.properties?.email_action_link) {
+    if (linkError || !data) {
       console.error('Failed to generate link:', linkError)
       return NextResponse.json(
         { error: 'Failed to generate auth link' },
@@ -87,12 +84,11 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Extract the session from the magic link
-    const magicLinkUrl = new URL(data.properties.email_action_link)
-    const token_hash = magicLinkUrl.searchParams.get('token_hash')
-    const type = magicLinkUrl.searchParams.get('type') || 'magiclink'
+    // Extract token_hash from the response
+    const token_hash = (data as any)?.token_hash
 
     if (!token_hash) {
+      console.error('No token_hash in response:', data)
       return NextResponse.json(
         { error: 'Failed to extract session token' },
         { status: 500 }
