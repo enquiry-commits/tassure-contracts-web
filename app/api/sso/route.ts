@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify OTP to get session
+    console.log('Calling verifyOtp with token_hash:', token_hash?.substring(0, 20) + '...')
     const { data: sessionData, error: verifyError } =
       await supabaseAdmin.auth.verifyOtp({
         type: 'magiclink',
@@ -112,10 +113,18 @@ export async function GET(req: NextRequest) {
         token_hash: token_hash,
       })
 
-    if (verifyError || !sessionData.session) {
-      console.error('Failed to verify OTP:', verifyError)
+    if (verifyError) {
+      console.error('Failed to verify OTP error:', verifyError)
       return NextResponse.json(
-        { error: 'Failed to create session' },
+        { error: 'Failed to verify OTP: ' + (verifyError?.message || 'unknown error') },
+        { status: 500 }
+      )
+    }
+
+    if (!sessionData?.session) {
+      console.error('No session in verifyOtp response:', sessionData)
+      return NextResponse.json(
+        { error: 'No session created after OTP verification' },
         { status: 500 }
       )
     }
