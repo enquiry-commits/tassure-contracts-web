@@ -70,10 +70,13 @@ export async function GET(req: NextRequest) {
       SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Generate a sign-in link
+    // Generate a sign-in link with correct redirect URL for production
     const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email: email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposal/generator`,
+      },
     })
 
     if (linkError || !data) {
