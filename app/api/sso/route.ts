@@ -84,13 +84,16 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Extract token_hash from the response
-    const token_hash = (data as any)?.token_hash
+    // Log the actual response structure for debugging
+    console.log('generateLink response:', JSON.stringify(data, null, 2))
+
+    // Extract token_hash from the response - it should be in data.hashed_token or data.token_hash
+    const token_hash = (data as any)?.hashed_token || (data as any)?.token_hash || (data as any)?.properties?.hashed_token
 
     if (!token_hash) {
-      console.error('No token_hash in response:', data)
+      console.error('No token found in response. Data structure:', data)
       return NextResponse.json(
-        { error: 'Failed to extract session token' },
+        { error: 'Failed to extract session token - check logs for response structure' },
         { status: 500 }
       )
     }
