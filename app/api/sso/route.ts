@@ -88,13 +88,8 @@ export async function GET(req: NextRequest) {
     console.log('generateLink response:', JSON.stringify(data, null, 2))
     console.log('generateLink response type:', typeof data, 'keys:', Object.keys(data || {}))
 
-    // Extract token_hash from the response
-    // Supabase may return it at different levels depending on SDK version
-    const token_hash =
-      (data as any)?.properties?.hashed_token ||  // Nested in properties
-      (data as any)?.hashed_token ||              // Direct property
-      (data as any)?.token_hash ||                // Alternative name
-      (data as any)?.email_action_link            // Legacy fallback
+    // Extract hashed_token from properties (confirmed location from logs)
+    const token_hash = (data as any)?.properties?.hashed_token
 
     if (!token_hash) {
       console.error('No token found in response. Data structure:', data)
