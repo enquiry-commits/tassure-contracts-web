@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 
+export const dynamic = 'force-dynamic'
+
 export default function SsoVerifyPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
