@@ -7,12 +7,10 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 const SSO_SHARED_SECRET = process.env.SSO_SHARED_SECRET
 
-// Employee list - add your company employees here
 const COMPANY_EMPLOYEES = new Set([
   'esther@tassure.com',
   'chelsea@tassure.com',
   'vincent@tassure.com',
-  // Add more employees as needed
 ])
 
 export async function GET(req: NextRequest) {
@@ -30,7 +28,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Decode token: format is "email:exp:signature"
+    // Decode SSO token: format is "email:exp:signature"
     const parts = token.split(':')
     if (parts.length !== 3) {
       return NextResponse.json({ error: 'Invalid token format' }, { status: 400 })
@@ -38,7 +36,7 @@ export async function GET(req: NextRequest) {
 
     const [email, expStr, signature] = parts
 
-    // Check expiration (60 seconds only)
+    // Verify token expiration
     const exp = parseInt(expStr, 10)
     const now = Math.floor(Date.now() / 1000)
     if (isNaN(exp) || now > exp) {
@@ -56,7 +54,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
 
-    // Verify email is in company employee list
+    // Verify email is authorized
     if (!COMPANY_EMPLOYEES.has(email)) {
       return NextResponse.json(
         { error: 'Email not authorized' },
@@ -64,47 +62,69 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Create Supabase admin client for generating auth link
+    console.log('[SSO] Token verified for email:', email)
+
     const supabaseAdmin = createClient(
       SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY
     )
 
-    // Generate a sign-in link with correct redirect URL for production
-    const { data, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposal/generator`,
-      },
-    })
+    // Step 1: Ensure user exists (create or get existing)
+    let userId: string
+    const { data: existingUser } = await supabaseAdmin.auth.admin.listUsers()
+    const user = existingUser?.users?.find((u: any) => u.email === email)
 
-    if (linkError || !data) {
-      console.error('Failed to generate link:', linkError)
+    if (user) {
+      userId = user.id
+      console.log('[SSO] User exists:', userId)
+    } else {
+      const { data: newUser, error: createError } =
+        await supabaseAdmin.auth.admin.createUser({
+          email: email,
+          email_confirm: true,
+          user_metadata: {
+            sso_login: true,
+            sso_timestamp: new Date().toISOString(),
+          },
+        })
+
+      if (createError) {
+        console.error('[SSO] Failed to create user:', createError)
+        return NextResponse.json(
+          { error: 'Failed to create user account' },
+          { status: 500 }
+        )
+      }
+
+      userId = newUser?.user?.id || ''
+      console.log('[SSO] User created:', userId)
+    }
+
+    // Step 2: Generate magic link for creating session
+    const { data: linkData, error: linkError } =
+      await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email,
+      })
+
+    if (linkError || !linkData) {
+      console.error('[SSO] Failed to generate link:', linkError)
       return NextResponse.json(
         { error: 'Failed to generate auth link' },
         { status: 500 }
       )
     }
 
-    // Log the actual response structure for debugging
-    console.log('generateLink response:', JSON.stringify(data, null, 2))
-    console.log('generateLink response type:', typeof data, 'keys:', Object.keys(data || {}))
-
-    // Extract hashed_token from properties (confirmed location from logs)
-    const token_hash = (data as any)?.properties?.hashed_token
-
+    const token_hash = (linkData as any)?.properties?.hashed_token
     if (!token_hash) {
-      console.error('No token found in response. Data structure:', data)
+      console.error('[SSO] No token in link data')
       return NextResponse.json(
-        { error: 'Failed to extract session token - check logs for response structure' },
+        { error: 'Failed to extract token' },
         { status: 500 }
       )
     }
 
-    // Verify OTP to get session
-    // NOTE: Only token_hash and type should be provided, NOT email
-    console.log('Calling verifyOtp with token_hash:', token_hash?.substring(0, 20) + '...')
+    // Step 3: Verify the magic link token to create session
     const { data: sessionData, error: verifyError } =
       await supabaseAdmin.auth.verifyOtp({
         type: 'email',
@@ -112,62 +132,53 @@ export async function GET(req: NextRequest) {
       })
 
     if (verifyError) {
-      console.error('Failed to verify OTP error:', verifyError)
+      console.error('[SSO] verifyOtp failed:', verifyError)
       return NextResponse.json(
-        { error: 'Failed to verify OTP: ' + (verifyError?.message || 'unknown error') },
+        { error: 'Failed to create session: ' + verifyError.message },
         { status: 500 }
       )
     }
 
-    if (!sessionData?.session) {
-      console.error('No session in verifyOtp response:', JSON.stringify(sessionData, null, 2))
+    if (!sessionData?.session?.access_token) {
+      console.error('[SSO] No access token in session:', sessionData)
       return NextResponse.json(
-        { error: 'No session created after OTP verification', details: sessionData },
+        { error: 'No session created' },
         { status: 500 }
       )
     }
 
+    // Step 4: Set cookies and redirect
     const { access_token, refresh_token } = sessionData.session
 
-    console.log('[SSO] Session data:', {
-      hasSession: !!sessionData.session,
-      hasAccessToken: !!access_token,
-      hasRefreshToken: !!refresh_token,
-      accessTokenLength: access_token?.length,
-      refreshTokenLength: refresh_token?.length,
-    })
+    console.log('[SSO] Session created successfully, setting cookies')
 
-    // Create response with redirect
     const response = NextResponse.redirect(
       `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposal/generator`,
       { status: 302 }
     )
 
-    console.log('[SSO] Setting cookies - access_token exists:', !!access_token, 'refresh_token exists:', !!refresh_token)
-
     response.cookies.set('sb-access-token', access_token, {
       httpOnly: true,
-      secure: true, // Always secure on HTTPS (Vercel uses HTTPS)
+      secure: true,
       sameSite: 'lax',
-      maxAge: 3600 * 24 * 7, // 7 days
+      maxAge: 3600 * 24 * 7,
       path: '/',
     })
 
     response.cookies.set('sb-refresh-token', refresh_token, {
       httpOnly: true,
-      secure: true, // Always secure on HTTPS (Vercel uses HTTPS)
+      secure: true,
       sameSite: 'lax',
-      maxAge: 3600 * 24 * 30, // 30 days
+      maxAge: 3600 * 24 * 30,
       path: '/',
     })
 
-    console.log('Redirecting to:', `${process.env.NEXT_PUBLIC_APP_URL}/proposal/generator`)
-
+    console.log('[SSO] Redirecting to proposal generator')
     return response
   } catch (err) {
-    console.error('SSO error:', err)
+    console.error('[SSO] Error:', err)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: String(err) },
       { status: 500 }
     )
   }
