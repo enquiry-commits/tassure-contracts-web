@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
     console.log('Calling verifyOtp with token_hash:', token_hash?.substring(0, 20) + '...')
     const { data: sessionData, error: verifyError } =
       await supabaseAdmin.auth.verifyOtp({
-        type: 'magiclink',
+        type: 'email',
         email: email,
         token_hash: token_hash,
       })
