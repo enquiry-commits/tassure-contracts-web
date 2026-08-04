@@ -152,8 +152,10 @@ export async function GET(req: NextRequest) {
 
     console.log('[SSO] Session created successfully, setting cookies')
 
+    // Redirect to callback page that will handle sessionStorage setup
+    // (Supabase client uses sessionStorage, not cookies)
     const response = NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposal/generator`,
+      `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/sso/callback`,
       { status: 302 }
     )
 
