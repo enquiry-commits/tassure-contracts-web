@@ -120,12 +120,22 @@ export async function GET(req: NextRequest) {
     }
 
     if (!sessionData?.session) {
-      console.error('No session in verifyOtp response:', sessionData)
+      console.error('No session in verifyOtp response:', JSON.stringify(sessionData, null, 2))
       return NextResponse.json(
-        { error: 'No session created after OTP verification' },
+        { error: 'No session created after OTP verification', details: sessionData },
         { status: 500 }
       )
     }
+
+    const { access_token, refresh_token } = sessionData.session
+
+    console.log('[SSO] Session data:', {
+      hasSession: !!sessionData.session,
+      hasAccessToken: !!access_token,
+      hasRefreshToken: !!refresh_token,
+      accessTokenLength: access_token?.length,
+      refreshTokenLength: refresh_token?.length,
+    })
 
     // Create response with redirect
     const response = NextResponse.redirect(
@@ -133,10 +143,7 @@ export async function GET(req: NextRequest) {
       { status: 302 }
     )
 
-    // Set auth cookies
-    const { access_token, refresh_token } = sessionData.session
-
-    console.log('Setting cookies - access_token exists:', !!access_token, 'refresh_token exists:', !!refresh_token)
+    console.log('[SSO] Setting cookies - access_token exists:', !!access_token, 'refresh_token exists:', !!refresh_token)
 
     response.cookies.set('sb-access-token', access_token, {
       httpOnly: true,
