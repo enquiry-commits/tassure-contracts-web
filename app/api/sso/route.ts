@@ -62,46 +62,44 @@ export async function GET(req: NextRequest) {
 
     // Get or create user
     const { data: userData } = await supabase.auth.admin.listUsers()
-    let userId: string
     let user = userData?.users?.find((u: any) => u.email === email)
 
     if (!user) {
       // Create user if doesn't exist
-      const { data: newUser } = await supabase.auth.admin.createUser({
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,
         email_confirm: true,
         user_metadata: { sso_login: true },
       })
-      userId = newUser?.user?.id || ''
-    } else {
-      userId = user.id
+      if (createError || !newUser?.user?.id) {
+        console.error('[SSO] Failed to create user:', createError)
+        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
+      }
+      user = newUser.user
     }
 
-    // Generate session for the user
-    const { data: sessionData, error: sessionError } =
-      await supabase.auth.admin.createSession(userId)
+    // Generate magic link to create session
+    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/sso/verify`,
+      },
+    })
 
-    if (sessionError || !sessionData?.session) {
-      console.error('[SSO] Failed to create session:', sessionError)
-      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+    if (linkError || !linkData?.properties?.hashed_token) {
+      console.error('[SSO] Failed to generate link:', linkError)
+      return NextResponse.json({ error: 'Failed to generate session link' }, { status: 500 })
     }
 
-    console.log('[SSO] Session created successfully')
+    console.log('[SSO] Magic link generated, returning verification token')
 
-    // Return JSON with session info
+    // Return the hashed token for client-side verification
     return NextResponse.json({
       success: true,
       email,
-      session: {
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
-        expires_in: sessionData.session.expires_in,
-        expires_at: sessionData.session.expires_at,
-        token_type: sessionData.session.token_type,
-        type: sessionData.session.type,
-        user: sessionData.session.user,
-      },
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/proposal/generator`,
+      token: linkData.properties.hashed_token,
+      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/sso/verify`,
     })
   } catch (err) {
     console.error('[SSO] Error:', err)

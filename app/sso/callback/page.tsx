@@ -2,52 +2,44 @@
 
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 export default function SsoCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const token = searchParams.get('token')
+  const ssoToken = searchParams.get('token')
 
   useEffect(() => {
     const handleCallback = async () => {
-      if (!token) {
+      if (!ssoToken) {
         router.push('/login?error=no_token')
         return
       }
 
       try {
-        // Call the SSO endpoint with the token
-        const res = await fetch(`/api/sso?token=${encodeURIComponent(token)}`)
+        // Call the SSO endpoint to verify token and get magic link
+        const res = await fetch(`/api/sso?token=${encodeURIComponent(ssoToken)}`)
         const data = await res.json()
 
         if (!res.ok || !data.success) {
-          console.error('SSO verification failed:', data.error)
+          console.error('[SSO Callback] SSO verification failed:', data.error)
           router.push(`/login?error=${data.error || 'verification_failed'}`)
           return
         }
 
-        // Extract session data
-        const session = data.session
-        if (!session || !session.access_token) {
-          console.error('No session in response')
-          router.push('/login?error=no_session')
+        if (!data.token || !data.email) {
+          console.error('[SSO Callback] Missing verification token or email')
+          router.push('/login?error=no_verification_token')
           return
         }
 
-        // Store session in sessionStorage (Supabase will auto-use it)
-        const supabase = createSupabaseBrowserClient()
+        console.log('[SSO Callback] Redirecting to verify page')
 
-        // Manually set session in Supabase client
-        window.sessionStorage.setItem(
-          `sb-${process.env.NEXT_PUBLIC_SUPABASE_URL?.split('/').pop()}-auth-token`,
-          JSON.stringify(session)
+        // Redirect to verify page with the token and email
+        router.push(
+          `/sso/verify?token=${encodeURIComponent(data.token)}&email=${encodeURIComponent(
+            data.email
+          )}`
         )
-
-        console.log('[SSO] Session stored, redirecting to generator')
-
-        // Redirect to proposal generator
-        router.push('/proposal/generator')
       } catch (err) {
         console.error('[SSO Callback] Error:', err)
         router.push('/login?error=callback_error')
@@ -55,13 +47,13 @@ export default function SsoCallbackPage() {
     }
 
     handleCallback()
-  }, [token, router])
+  }, [ssoToken, router])
 
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="text-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-        <p className="text-gray-600">Verifying SSO token...</p>
+        <p className="text-gray-600">Processing SSO token...</p>
       </div>
     </div>
   )
