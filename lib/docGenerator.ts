@@ -160,17 +160,42 @@ function updateFeeCell(tc: Element, amount: number, xmlDoc: any): void {
   }
 }
 
-function updateCcCell(tc: Element, amount: number): void {
+function updateCcCell(tc: Element, amount: number, xmlDoc?: any): void {
   const newText = fmtSGD(amount)
+
+  // Find paragraph with text, preserve pPr (formatting), only replace runs
   for (const p of allDescendants(tc, 'p')) {
-    for (const r of allDescendants(p, 'r')) {
-      for (const t of allDescendants(r, 't')) {
-        if ((t.textContent ?? '').trim()) {
-          t.textContent = newText
-          return
-        }
+    const ts = allDescendants(p, 't')
+    if (ts.length === 0) continue
+    const combined = ts.map(t => t.textContent ?? '').join('')
+    if (!combined.trim()) continue
+
+    // Found paragraph with text - preserve pPr, replace all runs
+    const pPr = directChildren(p, 'pPr')[0]
+
+    // Remove all existing runs but keep pPr
+    for (let i = p.childNodes.length - 1; i >= 0; i--) {
+      const child = p.childNodes[i] as Element
+      if (child.nodeType === 1 && child.localName !== 'pPr') {
+        p.removeChild(child)
       }
     }
+
+    // Create new run with formatted text (keep original formatting)
+    if (xmlDoc) {
+      p.appendChild(makeCalibriRun(newText, '20', xmlDoc, 'Calibri'))
+    } else {
+      // Fallback without xmlDoc
+      const r = xmlDoc?.createElement('w:r')
+      if (r) {
+        const t = xmlDoc.createElement('w:t')
+        t.setAttribute('xml:space', 'preserve')
+        t.textContent = newText
+        r.appendChild(t)
+        p.appendChild(r)
+      }
+    }
+    return
   }
 }
 
@@ -1455,7 +1480,7 @@ function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, 
           }
         }
       }
-      if (cells.length > 4) updateCcCell(cells[4], val)
+      if (cells.length > 4) updateCcCell(cells[4], val, xmlDoc)
     }
   }
   reformatQtyCells(tbl, xmlDoc)
