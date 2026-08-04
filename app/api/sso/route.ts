@@ -103,11 +103,11 @@ export async function GET(req: NextRequest) {
     }
 
     // Verify OTP to get session
+    // NOTE: Only token_hash and type should be provided, NOT email
     console.log('Calling verifyOtp with token_hash:', token_hash?.substring(0, 20) + '...')
     const { data: sessionData, error: verifyError } =
       await supabaseAdmin.auth.verifyOtp({
         type: 'email',
-        email: email,
         token_hash: token_hash,
       })
 
