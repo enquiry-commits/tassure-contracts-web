@@ -135,19 +135,26 @@ export async function GET(req: NextRequest) {
 
     // Set auth cookies
     const { access_token, refresh_token } = sessionData.session
+
+    console.log('Setting cookies - access_token exists:', !!access_token, 'refresh_token exists:', !!refresh_token)
+
     response.cookies.set('sb-access-token', access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always secure on HTTPS (Vercel uses HTTPS)
       sameSite: 'lax',
       maxAge: 3600 * 24 * 7, // 7 days
+      path: '/',
     })
 
     response.cookies.set('sb-refresh-token', refresh_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always secure on HTTPS (Vercel uses HTTPS)
       sameSite: 'lax',
       maxAge: 3600 * 24 * 30, // 30 days
+      path: '/',
     })
+
+    console.log('Redirecting to:', `${process.env.NEXT_PUBLIC_APP_URL}/proposal/generator`)
 
     return response
   } catch (err) {
