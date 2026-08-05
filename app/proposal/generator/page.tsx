@@ -135,18 +135,42 @@ function GeneratePageContent() {
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
+    let cancelled = false
 
-    // Use onAuthStateChange for real-time session monitoring
-    // This automatically handles session refresh without redirects
+    const checkSession = async () => {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession()
+
+      if (cancelled) return
+
+      if (sessionError || !session) {
+        console.error(
+          '[Proposal Generator] No valid session:',
+          sessionError
+        )
+        router.replace('/login')
+      }
+    }
+
+    void checkSession()
+
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        router.replace('/login')
+        return
+      }
+
+      if (event === 'INITIAL_SESSION' && !session) {
         router.replace('/login')
       }
     })
 
     return () => {
+      cancelled = true
       subscription.unsubscribe()
     }
   }, [router])

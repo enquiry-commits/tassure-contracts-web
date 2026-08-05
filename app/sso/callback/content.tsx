@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { createSupabaseBrowserClient } from '@/lib/supabase'
 
 export default function SsoCallbackContent() {
   const router = useRouter()
@@ -28,21 +29,37 @@ export default function SsoCallbackContent() {
           return
         }
 
-        console.log('[SSO Callback] Session created, storing to sessionStorage...')
+        console.log('[SSO Callback] Session received, persisting with Supabase...')
 
-        // Store session in sessionStorage
         const session = data.session
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const ref = supabaseUrl?.split('/').pop()
-        window.sessionStorage.setItem(
-          `sb-${ref}-auth-token`,
-          JSON.stringify(session)
-        )
+        const supabase = createSupabaseBrowserClient()
 
-        console.log('[SSO Callback] Session stored, redirecting to generator')
+        const {
+          data: sessionResult,
+          error: sessionError,
+        } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        })
 
-        // Redirect to proposal generator
-        router.push('/proposal/generator')
+        if (sessionError || !sessionResult.session) {
+          console.error(
+            '[SSO Callback] Failed to persist Supabase session:',
+            sessionError
+          )
+
+          router.push(
+            `/login?error=${encodeURIComponent(
+              sessionError?.message || 'session_persist_failed'
+            )}`
+          )
+          return
+        }
+
+        console.log('[SSO Callback] Supabase session persisted successfully')
+
+        // Use window.location.replace to fully reload and initialize Supabase client
+        window.location.replace('/proposal/generator')
       } catch (err) {
         console.error('[SSO Callback] Error:', err)
         router.push('/login?error=callback_error')
