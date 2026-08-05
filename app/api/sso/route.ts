@@ -68,7 +68,14 @@ export async function GET(req: NextRequest) {
 
     if (linkError || !linkData?.properties?.hashed_token) {
       console.error('[SSO] Failed to generate link:', linkError)
-      return NextResponse.json({ error: 'Failed to generate session link' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'Failed to generate session link',
+          detail: linkError?.message || 'Unknown generateLink error',
+          code: linkError?.status,
+        },
+        { status: 500 }
+      )
     }
 
     const hashedToken = linkData.properties.hashed_token
@@ -92,7 +99,14 @@ export async function GET(req: NextRequest) {
 
     if (verifyError || !sessionData?.session) {
       console.error('[SSO] Failed to verify OTP:', verifyError)
-      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+      return NextResponse.json(
+        {
+          error: 'Failed to create session',
+          detail: verifyError?.message || 'Unknown verify error',
+          code: verifyError?.status,
+        },
+        { status: 500 }
+      )
     }
 
     console.log('[SSO] Session created successfully')
