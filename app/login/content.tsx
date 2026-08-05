@@ -23,7 +23,7 @@ export default function LoginContent() {
       setError('')
 
       const supabase = createSupabaseBrowserClient()
-      const redirectUrl = `${window.location.origin}/auth/callback`
+      const redirectUrl = `${window.location.origin}/proposal/generator`
 
       const { error: authError } = await supabase.auth.signInWithOAuth({
         provider: 'google',

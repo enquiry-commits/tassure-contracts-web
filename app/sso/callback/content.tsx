@@ -33,7 +33,7 @@ export default function SsoCallbackContent() {
 
         // Token is valid, start Google OAuth login
         const supabase = createSupabaseBrowserClient()
-        const redirectUrl = `${window.location.origin}/auth/callback`
+        const redirectUrl = `${window.location.origin}/proposal/generator`
 
         const { error: authError } = await supabase.auth.signInWithOAuth({
           provider: 'google',
