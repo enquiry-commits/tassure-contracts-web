@@ -107,7 +107,6 @@ export async function GET(req: NextRequest) {
         expires_in: sessionData.session.expires_in,
         expires_at: sessionData.session.expires_at,
         token_type: sessionData.session.token_type,
-        type: sessionData.session.type,
       },
     })
   } catch (err) {
