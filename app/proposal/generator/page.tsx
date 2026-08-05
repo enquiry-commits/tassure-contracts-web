@@ -135,7 +135,16 @@ function GeneratePageContent() {
 
   useEffect(() => {
     createSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => {
-      if (!session) router.replace('/login')
+      if (!session) {
+        const isSsoEntry = sessionStorage.getItem('sso_entry')
+        if (isSsoEntry) {
+          // SSO user: redirect to SSO expired page
+          router.replace('/sso/expired')
+        } else {
+          // Regular user: redirect to login
+          router.replace('/login')
+        }
+      }
     })
   }, [router])
 
