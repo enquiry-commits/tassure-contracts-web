@@ -136,19 +136,17 @@ function GeneratePageContent() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Use onAuthStateChanged for real-time session monitoring
+    // This automatically handles session refresh without redirects
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChanged((session) => {
       if (!session) {
-        // Try to refresh the session using refresh_token
-        supabase.auth.refreshSession().then(({ data: { session: newSession }, error }) => {
-          if (error || !newSession) {
-            // Refresh failed, redirect to login
-            sessionStorage.removeItem('sso_entry')
-            router.replace('/login')
-          }
-          // If refresh succeeds, session is restored automatically
-        })
+        router.replace('/login')
       }
     })
+
+    return () => subscription?.unsubscribe()
   }, [router])
 
   useEffect(() => {
