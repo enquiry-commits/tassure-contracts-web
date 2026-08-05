@@ -110,17 +110,11 @@ export async function GET(req: NextRequest) {
 
     console.log('[SSO] Session created successfully')
 
-    // Return session data for client-side storage
+    // Return complete session data for client-side storage
     return NextResponse.json({
       success: true,
       email,
-      session: {
-        access_token: sessionData.session.access_token,
-        refresh_token: sessionData.session.refresh_token,
-        expires_in: sessionData.session.expires_in,
-        expires_at: sessionData.session.expires_at,
-        token_type: sessionData.session.token_type,
-      },
+      session: sessionData.session,
     })
   } catch (err) {
     console.error('[SSO] Error:', err)
