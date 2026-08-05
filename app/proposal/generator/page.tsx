@@ -136,17 +136,19 @@ function GeneratePageContent() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
 
-    // Use onAuthStateChanged for real-time session monitoring
+    // Use onAuthStateChange for real-time session monitoring
     // This automatically handles session refresh without redirects
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChanged((session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
         router.replace('/login')
       }
     })
 
-    return () => subscription?.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [router])
 
   useEffect(() => {
