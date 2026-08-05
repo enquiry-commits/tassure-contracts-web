@@ -4,7 +4,6 @@ import crypto from 'crypto'
 
 const SSO_SHARED_SECRET = process.env.SSO_SHARED_SECRET
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const COMPANY_EMPLOYEES = new Set([
@@ -14,6 +13,8 @@ const COMPANY_EMPLOYEES = new Set([
 ])
 
 export async function GET(req: NextRequest) {
+  const requestStartedAt = performance.now()
+
   try {
     const token = req.nextUrl.searchParams.get('token')
 
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 })
     }
 
-    if (!SSO_SHARED_SECRET || !SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SSO_SHARED_SECRET || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
@@ -56,66 +57,55 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Email not authorized' }, { status: 403 })
     }
 
-    console.log('[SSO] Token verified for email:', email)
+    const tokenValidationMs = Math.round(performance.now() - requestStartedAt)
+    console.log('[SSO] Token validated in', tokenValidationMs, 'ms for email:', email)
 
-    // Step 1: Use admin client to generate magic link
+    // Generate magic link (client will handle OTP verification)
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+    const generateLinkStartedAt = performance.now()
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'magiclink',
       email,
     })
+    const generateLinkMs = Math.round(performance.now() - generateLinkStartedAt)
 
     if (linkError || !linkData?.properties?.hashed_token) {
-      console.error('[SSO] Failed to generate link:', linkError)
+      console.error('[SSO] generateLink failed in', generateLinkMs, 'ms:', linkError?.message)
       return NextResponse.json(
         {
           error: 'Failed to generate session link',
-          detail: linkError?.message || 'Unknown generateLink error',
+          detail: linkError?.message || 'Unknown error',
           code: linkError?.status,
         },
         { status: 500 }
       )
     }
 
+    const totalApiMs = Math.round(performance.now() - requestStartedAt)
     const hashedToken = linkData.properties.hashed_token
 
-    // Step 2: Use server client to verify the OTP (with cookie handling)
-    const supabaseServer = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        storage: {
-          getItem: () => null,
-          setItem: () => {},
-          removeItem: () => {},
-        },
+    console.log('[SSO] API completed in', totalApiMs, 'ms (validation:', tokenValidationMs, 'ms, generateLink:', generateLinkMs, 'ms)')
+
+    // Return hashed_token for client-side OTP verification
+    // This optimizes by letting the client handle OTP verification,
+    // reducing server-side Supabase calls and network latency
+    const response = NextResponse.json({
+      success: true,
+      email,
+      hashedToken,
+      timings: {
+        tokenValidationMs,
+        generateLinkMs,
+        totalApiMs,
+        region: process.env.VERCEL_REGION || 'unknown',
       },
     })
 
-    const { data: sessionData, error: verifyError } = await supabaseServer.auth.verifyOtp({
-      type: 'magiclink',
-      token_hash: hashedToken,
-    })
+    // Prevent caching
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
 
-    if (verifyError || !sessionData?.session) {
-      console.error('[SSO] Failed to verify OTP:', verifyError)
-      return NextResponse.json(
-        {
-          error: 'Failed to create session',
-          detail: verifyError?.message || 'Unknown verify error',
-          code: verifyError?.status,
-        },
-        { status: 500 }
-      )
-    }
-
-    console.log('[SSO] Session created successfully')
-
-    // Return complete session data for client-side storage
-    return NextResponse.json({
-      success: true,
-      email,
-      session: sessionData.session,
-    })
+    return response
   } catch (err) {
     console.error('[SSO] Error:', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

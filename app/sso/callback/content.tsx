@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 
@@ -8,58 +8,95 @@ export default function SsoCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const ssoToken = searchParams.get('token')
+  const handledRef = useRef(false)
 
   useEffect(() => {
+    if (handledRef.current) return
+    handledRef.current = true
+
     const handleCallback = async () => {
+      const callbackStartedAt = performance.now()
+
       if (!ssoToken) {
         router.push('/login?error=no_token')
         return
       }
 
       try {
-        console.log('[SSO Callback] Verifying token on server...')
+        console.log('[SSO Callback] Starting SSO callback...')
 
-        // Call server to verify token and create session
+        // Step 1: Fetch hashed_token from server
+        const apiFetchStartedAt = performance.now()
         const res = await fetch(`/api/sso?token=${encodeURIComponent(ssoToken)}`)
-        const data = await res.json()
+        const apiFetchMs = Math.round(performance.now() - apiFetchStartedAt)
 
-        if (!res.ok || !data.success || !data.session) {
+        const parseStartedAt = performance.now()
+        const data = await res.json()
+        const parseMs = Math.round(performance.now() - parseStartedAt)
+
+        if (!res.ok || !data.success || !data.hashedToken) {
           console.error('[SSO Callback] Token verification failed:', data.error)
           router.push(`/login?error=${data.error || 'verification_failed'}`)
           return
         }
 
-        console.log('[SSO Callback] Session received, persisting with Supabase...')
+        const { hashedToken, email, timings: serverTimings } = data
 
-        const session = data.session
+        console.log('[SSO Performance - Server]', {
+          tokenValidationMs: serverTimings?.tokenValidationMs,
+          generateLinkMs: serverTimings?.generateLinkMs,
+          totalApiMs: serverTimings?.totalApiMs,
+          region: serverTimings?.region,
+        })
+
+        console.log('[SSO Performance - Network]', {
+          apiFetchMs,
+          parseMs,
+        })
+
+        // Step 2: Verify OTP on client side
+        // This reduces server load and network latency by doing OTP verification locally
+        const verifyOtpStartedAt = performance.now()
         const supabase = createSupabaseBrowserClient()
 
         const {
-          data: sessionResult,
-          error: sessionError,
-        } = await supabase.auth.setSession({
-          access_token: session.access_token,
-          refresh_token: session.refresh_token,
+          data: verifyData,
+          error: verifyError,
+        } = await supabase.auth.verifyOtp({
+          type: 'magiclink',
+          token_hash: hashedToken,
         })
 
-        if (sessionError || !sessionResult.session) {
+        const verifyOtpMs = Math.round(performance.now() - verifyOtpStartedAt)
+
+        if (verifyError || !verifyData?.session) {
           console.error(
-            '[SSO Callback] Failed to persist Supabase session:',
-            sessionError
+            '[SSO Callback] OTP verification failed in', verifyOtpMs, 'ms:',
+            verifyError?.message
           )
 
           router.push(
             `/login?error=${encodeURIComponent(
-              sessionError?.message || 'session_persist_failed'
+              verifyError?.message || 'otp_verification_failed'
             )}`
           )
           return
         }
 
-        console.log('[SSO Callback] Supabase session persisted successfully')
+        const totalMs = Math.round(performance.now() - callbackStartedAt)
 
-        // Use window.location.replace to fully reload and initialize Supabase client
-        window.location.replace('/proposal/generator')
+        console.log('[SSO Performance - Total]', {
+          apiFetchMs,
+          parseMs,
+          verifyOtpMs,
+          totalMs,
+        })
+
+        console.log('[SSO Callback] OTP verified successfully, redirecting to generator')
+
+        // Supabase client automatically saved session to sessionStorage via the verifyOtp call
+        // Use router.replace for client-side navigation (faster than full page reload)
+        router.replace('/proposal/generator')
       } catch (err) {
         console.error('[SSO Callback] Error:', err)
         router.push('/login?error=callback_error')
