@@ -134,16 +134,19 @@ function GeneratePageContent() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    createSupabaseBrowserClient().auth.getSession().then(({ data: { session } }) => {
+    const supabase = createSupabaseBrowserClient()
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
-        const isSsoEntry = sessionStorage.getItem('sso_entry')
-        if (isSsoEntry) {
-          // SSO user: redirect to SSO expired page
-          router.replace('/sso/expired')
-        } else {
-          // Regular user: redirect to login
-          router.replace('/login')
-        }
+        // Try to refresh the session using refresh_token
+        supabase.auth.refreshSession().then(({ data: { session: newSession }, error }) => {
+          if (error || !newSession) {
+            // Refresh failed, redirect to login
+            sessionStorage.removeItem('sso_entry')
+            router.replace('/login')
+          }
+          // If refresh succeeds, session is restored automatically
+        })
       }
     })
   }, [router])

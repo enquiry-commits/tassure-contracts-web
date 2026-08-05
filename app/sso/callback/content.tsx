@@ -39,9 +39,6 @@ export default function SsoCallbackContent() {
           JSON.stringify(session)
         )
 
-        // Mark this as SSO entry to prevent fallback to login
-        window.sessionStorage.setItem('sso_entry', 'true')
-
         console.log('[SSO Callback] Session stored, redirecting to generator')
 
         // Redirect to proposal generator
