@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
 const SSO_SHARED_SECRET = process.env.SSO_SHARED_SECRET
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const COMPANY_EMPLOYEES = new Set([
   'esther@tassure.com',
@@ -20,7 +17,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 })
     }
 
-    if (!SSO_SHARED_SECRET || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!SSO_SHARED_SECRET) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
@@ -57,49 +54,11 @@ export async function GET(req: NextRequest) {
 
     console.log('[SSO] Token verified for email:', email)
 
-    // Use admin client to create session directly
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-    // Get or create user
-    const { data: userData } = await supabase.auth.admin.listUsers()
-    let user = userData?.users?.find((u: any) => u.email === email)
-
-    if (!user) {
-      // Create user if doesn't exist
-      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        user_metadata: { sso_login: true },
-      })
-      if (createError || !newUser?.user?.id) {
-        console.error('[SSO] Failed to create user:', createError)
-        return NextResponse.json({ error: 'Failed to create user' }, { status: 500 })
-      }
-      user = newUser.user
-    }
-
-    // Generate magic link to create session
-    const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
-      type: 'magiclink',
-      email,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/sso/verify`,
-      },
-    })
-
-    if (linkError || !linkData?.properties?.hashed_token) {
-      console.error('[SSO] Failed to generate link:', linkError)
-      return NextResponse.json({ error: 'Failed to generate session link' }, { status: 500 })
-    }
-
-    console.log('[SSO] Magic link generated, returning verification token')
-
-    // Return the hashed token for client-side verification
+    // Token is valid, client will proceed with Google OAuth
     return NextResponse.json({
       success: true,
       email,
-      token: linkData.properties.hashed_token,
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/sso/verify`,
+      message: 'Token verified, proceed with Google authentication',
     })
   } catch (err) {
     console.error('[SSO] Error:', err)
