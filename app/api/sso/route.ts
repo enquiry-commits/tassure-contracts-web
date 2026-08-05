@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
 const SSO_SHARED_SECRET = process.env.SSO_SHARED_SECRET
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const COMPANY_EMPLOYEES = new Set([
   'esther@tassure.com',
@@ -17,7 +21,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 })
     }
 
-    if (!SSO_SHARED_SECRET) {
+    if (!SSO_SHARED_SECRET || !SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 })
     }
 
@@ -54,11 +58,57 @@ export async function GET(req: NextRequest) {
 
     console.log('[SSO] Token verified for email:', email)
 
-    // Token is valid, client will proceed with Google OAuth
+    // Step 1: Use admin client to generate magic link
+    const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+    })
+
+    if (linkError || !linkData?.properties?.hashed_token) {
+      console.error('[SSO] Failed to generate link:', linkError)
+      return NextResponse.json({ error: 'Failed to generate session link' }, { status: 500 })
+    }
+
+    const hashedToken = linkData.properties.hashed_token
+
+    // Step 2: Use server client to verify the OTP (with cookie handling)
+    const supabaseServer = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: {
+        storage: {
+          getItem: () => null,
+          setItem: () => {},
+          removeItem: () => {},
+        },
+      },
+    })
+
+    const { data: sessionData, error: verifyError } = await supabaseServer.auth.verifyOtp({
+      type: 'magiclink',
+      token_hash: hashedToken,
+      email,
+    })
+
+    if (verifyError || !sessionData?.session) {
+      console.error('[SSO] Failed to verify OTP:', verifyError)
+      return NextResponse.json({ error: 'Failed to create session' }, { status: 500 })
+    }
+
+    console.log('[SSO] Session created successfully')
+
+    // Return session data for client-side storage
     return NextResponse.json({
       success: true,
       email,
-      message: 'Token verified, proceed with Google authentication',
+      session: {
+        access_token: sessionData.session.access_token,
+        refresh_token: sessionData.session.refresh_token,
+        expires_in: sessionData.session.expires_in,
+        expires_at: sessionData.session.expires_at,
+        token_type: sessionData.session.token_type,
+        type: sessionData.session.type,
+      },
     })
   } catch (err) {
     console.error('[SSO] Error:', err)
