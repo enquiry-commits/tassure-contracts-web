@@ -94,7 +94,6 @@ export async function GET(req: NextRequest) {
     const { data: sessionData, error: verifyError } = await supabaseServer.auth.verifyOtp({
       type: 'magiclink',
       token_hash: hashedToken,
-      email,
     })
 
     if (verifyError || !sessionData?.session) {
