@@ -421,7 +421,7 @@ export default function ContractTable() {
             <thead>
               <tr style={{ backgroundColor: '#EBF1F8' }}>
                 {['Reference', 'Time', 'Client', 'PIC', 'Delivery', 'Signature', 'Remarks', 'File', ''].map(h => (
-                  <th key={h} className="text-left px-4 py-3 text-[10px] font-bold text-[#4A6F9A] tracking-widest uppercase whitespace-nowrap">
+                  <th key={h} className="sticky top-0 text-left px-4 py-3 text-[10px] font-bold text-[#4A6F9A] tracking-widest uppercase whitespace-nowrap" style={{ backgroundColor: '#EBF1F8', zIndex: 10 }}>
                     {h}
                   </th>
                 ))}
