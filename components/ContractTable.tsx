@@ -489,13 +489,13 @@ export default function ContractTable() {
                                 <td className="px-4 py-3">
                                   <span className="text-xs font-bold text-[#2A4F7F] bg-[#EBF1F8] px-2 py-0.5 rounded-full">{c.pic}</span>
                                 </td>
-                                <td className="px-4 py-3 text-center">
+                                <td className="px-4 py-3">
                                   <StatusCheckbox
                                     contractId={c.id} field="delivery" value={c.is_delivered}
                                     onChange={v => setContracts(prev => prev.map(x => x.id === c.id ? { ...x, is_delivered: v } : x))}
                                   />
                                 </td>
-                                <td className="px-4 py-3 text-center">
+                                <td className="px-4 py-3">
                                   <StatusCheckbox
                                     contractId={c.id} field="signature" value={c.is_signed ?? false}
                                     onChange={v => setContracts(prev => prev.map(x => x.id === c.id ? { ...x, is_signed: v } : x))}
