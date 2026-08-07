@@ -235,19 +235,19 @@ function DateGroupHeader({ sgDate, count, collapsed, onToggle }: {
     <tr>
       <td colSpan={9} className="px-0 py-0">
         <div className="flex items-center gap-3 px-9 py-2 cursor-pointer select-none"
-          style={{ backgroundColor: '#4B6278' }} onClick={onToggle}>
-          <svg className={`w-3.5 h-3.5 text-white transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}
+          style={{ backgroundColor: '#8B98A9' }} onClick={onToggle}>
+          <svg className={`w-3.5 h-3.5 text-[#1A1A2E] transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
           </svg>
-          <svg className="w-3.5 h-3.5 text-white opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-3.5 h-3.5 text-[#1A1A2E] opacity-60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
-          <span className="text-white opacity-70 text-xs font-medium">{weekday}</span>
-          <span className="text-white font-black text-base leading-none">{dayNum}</span>
+          <span className="text-[#1A1A2E] opacity-70 text-xs font-medium">{weekday}</span>
+          <span className="text-[#1A1A2E] font-black text-base leading-none">{dayNum}</span>
           <span className="ml-auto text-xs font-bold px-2.5 py-0.5 rounded-full"
-            style={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.9)' }}>
+            style={{ backgroundColor: 'rgba(26,26,46,0.2)', color: 'rgba(26,26,46,0.9)' }}>
             {count} proposal{count !== 1 ? 's' : ''}
           </span>
         </div>
