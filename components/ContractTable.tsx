@@ -235,7 +235,7 @@ function DateGroupHeader({ sgDate, count, collapsed, onToggle }: {
     <tr>
       <td colSpan={9} className="px-0 py-0">
         <div className="flex items-center gap-3 px-9 py-2 cursor-pointer select-none"
-          style={{ backgroundColor: '#A8B5C4' }} onClick={onToggle}>
+          style={{ backgroundColor: '#B8C5D4' }} onClick={onToggle}>
           <svg className={`w-3.5 h-3.5 text-[#1A1A2E] transition-transform duration-200 ${collapsed ? '-rotate-90' : ''}`}
             fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
