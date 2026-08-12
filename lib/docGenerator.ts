@@ -1625,6 +1625,27 @@ function applyColWidths(tbl: Element, colWidths: Array<{ w: string; type: string
   }
 }
 
+// ── remove all Chinese content for english-only mode ─────────────────────────
+function removeChineseContent(body: Element): void {
+  // Recursively process all text nodes
+  function processElement(el: Element): void {
+    for (let i = el.childNodes.length - 1; i >= 0; i--) {
+      const node = el.childNodes[i]
+      if (node.nodeType === 3) {
+        // Text node
+        const text = node.textContent ?? ''
+        const [enPart] = splitAtChinese(text)
+        if (enPart !== text) {
+          node.textContent = enPart
+        }
+      } else if (node.nodeType === 1) {
+        processElement(node as Element)
+      }
+    }
+  }
+  processElement(body)
+}
+
 // ── main export ───────────────────────────────────────────────────────────────
 
 export async function generateDocx(input: DocInput): Promise<Buffer> {
@@ -1672,6 +1693,11 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
 
   addAppendixSpacing(body, xmlDoc)
   normalizeGeneralSpacing(body, xmlDoc)
+
+  // Remove all Chinese content if english-only mode
+  if (input.languageMode === 'english-only') {
+    removeChineseContent(body)
+  }
 
   const serializer = new XMLSerializer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
