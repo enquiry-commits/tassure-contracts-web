@@ -73,6 +73,7 @@ function GeneratePageContent() {
   })
   const [salEn, setSalEn] = useState('Dear Management,')
   const [salCn, setSalCn] = useState('尊敬的领导，')
+  const [languageMode, setLanguageMode] = useState<'bilingual' | 'english-only'>('bilingual')
   const [picList, setPicList] = useState<string[]>([])
   const [selectedPic, setSelectedPic] = useState('')
 
@@ -304,6 +305,7 @@ function GeneratePageContent() {
           ccOverrides,
           sectionMapping,
           focServices,
+          languageMode,
           ...(replaceId ? { existingId: replaceId } : {}),
         }),
       })
@@ -348,6 +350,29 @@ function GeneratePageContent() {
           }}>
           Tassure Proposal Generator
         </span>
+        {/* Language Mode Selector */}
+        <div className="flex gap-1 items-center px-2 py-1 rounded-lg" style={{ backgroundColor: '#f0f4f8', border: '1px solid #d0dce8' }}>
+          <button
+            onClick={() => setLanguageMode('bilingual')}
+            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+              languageMode === 'bilingual'
+                ? 'bg-[#1A3F6F] text-white'
+                : 'text-[#6B7FA0] hover:text-[#1A3F6F]'
+            }`}>
+            中英文
+          </button>
+          <span className="text-[#b0c4de] px-1">|</span>
+          <button
+            onClick={() => setLanguageMode('english-only')}
+            className={`px-3 py-1 text-xs font-bold rounded transition-colors ${
+              languageMode === 'english-only'
+                ? 'bg-[#1A3F6F] text-white'
+                : 'text-[#6B7FA0] hover:text-[#1A3F6F]'
+            }`}>
+            English
+          </button>
+        </div>
+
         {/* Admin Dashboard Button */}
         <div className="flex gap-2 items-center">
           <a href="/proposal/admin"
