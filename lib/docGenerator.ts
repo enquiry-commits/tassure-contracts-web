@@ -1627,12 +1627,11 @@ function applyColWidths(tbl: Element, colWidths: Array<{ w: string; type: string
 
 // ── remove all Chinese content for english-only mode ─────────────────────────
 function removeChineseContent(body: Element): void {
-  // Recursively process all text nodes
+  // First pass: remove Chinese from all text nodes
   function processElement(el: Element): void {
     for (let i = el.childNodes.length - 1; i >= 0; i--) {
       const node = el.childNodes[i]
       if (node.nodeType === 3) {
-        // Text node
         const text = node.textContent ?? ''
         const [enPart] = splitAtChinese(text)
         if (enPart !== text) {
@@ -1644,6 +1643,25 @@ function removeChineseContent(body: Element): void {
     }
   }
   processElement(body)
+
+  // Second pass: clean up empty paragraphs and ones with only punctuation
+  function getParaText(p: Element): string {
+    const texts: string[] = []
+    for (const t of allDescendants(p, 't')) {
+      if (t.textContent) texts.push(t.textContent)
+    }
+    return texts.join('').trim()
+  }
+
+  const allParas = allDescendants(body, 'p')
+  for (let i = allParas.length - 1; i >= 0; i--) {
+    const para = allParas[i]
+    const text = getParaText(para)
+    // Remove if empty or only contains punctuation/whitespace
+    if (!text || /^[\s\p{P}]*$/u.test(text)) {
+      para.parentNode?.removeChild(para)
+    }
+  }
 }
 
 // ── main export ───────────────────────────────────────────────────────────────
