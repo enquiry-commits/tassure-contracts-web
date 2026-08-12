@@ -1627,15 +1627,29 @@ function applyColWidths(tbl: Element, colWidths: Array<{ w: string; type: string
 
 // ── remove all Chinese content for english-only mode ─────────────────────────
 function removeChineseContent(body: Element): void {
-  // First pass: remove Chinese from all text nodes
+  // First pass: remove Chinese from all text nodes and clean up residual symbols
   function processElement(el: Element): void {
     for (let i = el.childNodes.length - 1; i >= 0; i--) {
       const node = el.childNodes[i]
       if (node.nodeType === 3) {
-        const text = node.textContent ?? ''
+        let text = node.textContent ?? ''
         const [enPart] = splitAtChinese(text)
-        if (enPart !== text) {
-          node.textContent = enPart
+
+        // Clean up residual Chinese punctuation and symbols
+        text = enPart
+          .replace(/[　-〿]/g, '') // Remove CJK symbols and punctuation
+          .replace(/[＀-￯]/g, '') // Remove fullwidth forms
+          .replace(/[一-鿿]/g, '') // Remove CJK unified ideographs
+          .replace(/[㐀-䶿]/g, '') // Remove CJK extension A
+          .trim()
+
+        // Remove lines that end with Chinese punctuation followed by English (e.g., "$315）")
+        text = text.replace(/(\d+|\$)\s*[）\)]*\s*$/, '$1') // Clean "$315）" → "$315"
+
+        if (text) {
+          node.textContent = text
+        } else {
+          node.textContent = ''
         }
       } else if (node.nodeType === 1) {
         processElement(node as Element)
@@ -1657,9 +1671,24 @@ function removeChineseContent(body: Element): void {
   for (let i = allParas.length - 1; i >= 0; i--) {
     const para = allParas[i]
     const text = getParaText(para)
-    // Remove if empty or only contains punctuation/whitespace
-    if (!text || /^[\s\p{P}]*$/u.test(text)) {
+    // Remove if empty or only contains common punctuation/whitespace
+    if (!text || /^[\s\-_|/\\•·]*$/.test(text)) {
       para.parentNode?.removeChild(para)
+    } else {
+      // Third pass: for short lines (< 30 chars), reduce spacing before paragraph
+      if (text.length < 30 && text.length > 0) {
+        const pPr = directChildren(para, 'pPr')[0]
+        if (pPr) {
+          const spacing = directChildren(pPr, 'spacing')[0]
+          if (spacing) {
+            // Reduce spacing before/after to make short lines more compact
+            const before = spacing.getAttribute('w:before')
+            const after = spacing.getAttribute('w:after')
+            if (before) spacing.setAttribute('w:before', Math.max(0, Math.round(parseInt(before) * 0.6)).toString())
+            if (after) spacing.setAttribute('w:after', Math.max(0, Math.round(parseInt(after) * 0.6)).toString())
+          }
+        }
+      }
     }
   }
 }
