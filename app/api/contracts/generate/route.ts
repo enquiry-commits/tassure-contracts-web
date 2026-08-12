@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
       pic, mode, selected, feeOverrides, ccOverrides, sectionMapping,
       existingId, // present when replacing an existing record
       focServices,
+      languageMode,
     } = body
 
     if (!companyName || !pic) {
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
         ccOverrides: ccOverrides || {},
         sectionMapping,
         focServices: focServices || [],
+        languageMode: languageMode || 'bilingual',
       })
     } catch (docErr) {
       console.error('Doc generation error:', docErr)

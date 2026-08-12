@@ -19,6 +19,7 @@ export interface DocInput {
   ccOverrides: Record<string, number>
   sectionMapping?: Record<string, string[]>
   focServices?: string[]
+  languageMode?: 'bilingual' | 'english-only'
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ function makeCalibriRun(text: string, szVal: string, xmlDoc: any, eastAsiaFont =
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function updateFeeCell(tc: Element, amount: number, xmlDoc: any): void {
+function updateFeeCell(tc: Element, amount: number, xmlDoc: any, languageMode: 'bilingual' | 'english-only' = 'bilingual'): void {
   const num = fmtNum(amount)
 
   // First pass: unambiguous markers that always live in a single run
@@ -151,7 +152,7 @@ function updateFeeCell(tc: Element, amount: number, xmlDoc: any): void {
     for (const r of directChildren(para, 'r')) r.parentNode?.removeChild(r)
     const [enPart, cnPart] = splitAtChinese(newText)
     if (enPart) para.appendChild(makeCalibriRun(enPart, '20', xmlDoc))
-    if (cnPart) para.appendChild(makeCalibriRun(cnPart, '18', xmlDoc, 'Microsoft YaHei'))
+    if (cnPart && languageMode === 'bilingual') para.appendChild(makeCalibriRun(cnPart, '18', xmlDoc, 'Microsoft YaHei'))
     // Delete all other paragraphs
     for (const p of directChildren(tc, 'p')) {
       if (p !== para) p.parentNode?.removeChild(p)
@@ -160,7 +161,7 @@ function updateFeeCell(tc: Element, amount: number, xmlDoc: any): void {
   }
 }
 
-function updateCcCell(tc: Element, amount: number, xmlDoc?: any): void {
+function updateCcCell(tc: Element, amount: number, xmlDoc?: any, languageMode: 'bilingual' | 'english-only' = 'bilingual'): void {
   const newText = fmtSGD(amount)
 
   // Find paragraph with text, preserve pPr (formatting), only replace runs
@@ -424,7 +425,7 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
 
 // ── update Table 1 total cell ─────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function updateMainTableTotalCell(tc: Element, amount: number, xmlDoc: any): void {
+function updateMainTableTotalCell(tc: Element, amount: number, xmlDoc: any, languageMode: 'bilingual' | 'english-only' = 'bilingual'): void {
   const num = fmtNum(amount)
   for (const para of directChildren(tc, 'p')) {
     const ts = allDescendants(para, 't')
@@ -450,7 +451,7 @@ function updateMainTableTotalCell(tc: Element, amount: number, xmlDoc: any): voi
     }
     return
   }
-  updateFeeCell(tc, amount, xmlDoc)
+  updateFeeCell(tc, amount, xmlDoc, languageMode)
 }
 
 // ── override cell text (keeps cell/para properties, replaces runs) ────────────
@@ -665,6 +666,7 @@ function processMainTable(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xmlDoc: any,
   focServicesSet: Set<string>,
+  languageMode: 'bilingual' | 'english-only' = 'bilingual',
 ): void {
   // Find heading immediately before tbl — needed when removing the table.
   const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
@@ -771,7 +773,7 @@ function processMainTable(
     const rid = findRowId(cells, 'main')
     if (rid === 'MAIN_ND_DEPOSIT') {
       const depositAmt = feeOv['ND_DEPOSIT']
-      if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt, xmlDoc)
+      if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt, xmlDoc, languageMode)
     } else if (rid && FOC_MERGE_RIDS.has(rid)) {
       const feeCell = cells[cells.length - 1]
       stripVMerge(feeCell)
@@ -796,7 +798,7 @@ function processMainTable(
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc)
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc, languageMode)
         }
       }
     }
@@ -977,7 +979,7 @@ function processMainTable(
     const lastCells = directChildren(lastRow, 'tc')
     if (lastCells.length > 0) {
       const totalCell = lastCells[lastCells.length - 1]
-      updateMainTableTotalCell(totalCell, newTotal, xmlDoc)
+      updateMainTableTotalCell(totalCell, newTotal, xmlDoc, languageMode)
       // Set vertical alignment to center on the total fee cell
       {
         let tcPr = directChildren(totalCell, 'tcPr')[0]
@@ -1050,6 +1052,7 @@ function processOptTable(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xmlDoc: any,
   focServicesSet: Set<string>,
+  languageMode: 'bilingual' | 'english-only' = 'bilingual',
 ): void {
   const OPT_FEES: Record<string, number> = {
     ACCOUNTS: 1500, SECRETARIAL2: 700, ADDRESS2: 360, AR: 60,
@@ -1153,7 +1156,7 @@ function processOptTable(
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc)
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc, languageMode)
         }
       }
     }
@@ -1178,6 +1181,7 @@ function processEpTable(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xmlDoc: any,
   focServicesSet: Set<string>,
+  languageMode: 'bilingual' | 'english-only' = 'bilingual',
 ): void {
   // Capture a valid data row BEFORE removal — used as reference for dynamic row cloning.
   // Must be captured here (pre-removal) to guarantee a proper template row is available.
@@ -1230,7 +1234,7 @@ function processEpTable(
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
         } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc)
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc, languageMode)
         }
       }
     }
@@ -1453,7 +1457,7 @@ function reformatQtyCells(tbl: Element, xmlDoc: any): void {
 // ── process company changes table ─────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, xmlDoc: any): void {
+function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, xmlDoc: any, languageMode: 'bilingual' | 'english-only' = 'bilingual'): void {
   const rows = directChildren(tbl, 'tr')
   for (const item of CC_ITEMS) {
     let val = ccOverrides[item.key]
@@ -1480,7 +1484,7 @@ function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, 
           }
         }
       }
-      if (cells.length > 4) updateCcCell(cells[4], val, xmlDoc)
+      if (cells.length > 4) updateCcCell(cells[4], val, xmlDoc, languageMode)
     }
   }
   reformatQtyCells(tbl, xmlDoc)
@@ -1656,10 +1660,10 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   // Snapshot TABLE 2 column widths from the template before any processing
   const tbl2ColWidths = tables.length >= 2 ? readColWidths(tables[1]) : []
 
-  if (tables.length >= 1) processMainTable(body, tables[0], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
-  if (tables.length >= 2) processOptTable(body, tables[1], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
-  if (tables.length >= 3) processEpTable(tables[2], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet)
-  if (tables.length >= 4) processChangesTable(tables[3], input.ccOverrides, xmlDoc)
+  if (tables.length >= 1) processMainTable(body, tables[0], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
+  if (tables.length >= 2) processOptTable(body, tables[1], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
+  if (tables.length >= 3) processEpTable(tables[2], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
+  if (tables.length >= 4) processChangesTable(tables[3], input.ccOverrides, xmlDoc, input.languageMode)
 
   // Align TABLE 1 column widths to TABLE 2 (TABLE 2 is the baseline; TABLE 1 adapts)
   if (tbl2ColWidths.length > 0 && tables.length >= 1 && tables[0].parentNode) {
