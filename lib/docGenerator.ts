@@ -1658,7 +1658,7 @@ function removeChineseContent(body: Element): void {
   }
   processElement(body)
 
-  // Second pass: clean up empty paragraphs and ones with only punctuation
+  // Second pass: clean up empty paragraphs and ones with only punctuation/redundant numbers
   function getParaText(p: Element): string {
     const texts: string[] = []
     for (const t of allDescendants(p, 't')) {
@@ -1671,24 +1671,13 @@ function removeChineseContent(body: Element): void {
   for (let i = allParas.length - 1; i >= 0; i--) {
     const para = allParas[i]
     const text = getParaText(para)
-    // Remove if empty or only contains common punctuation/whitespace
-    if (!text || /^[\s\-_|/\\•·]*$/.test(text)) {
+    // Remove if:
+    // - empty or only punctuation/whitespace
+    // - pure numbers (except years and amounts with currency symbols)
+    // - single digit or small numbers that look like metadata (1, 2, 32, 50)
+    if (!text || /^[\s\-_|/\\•·]*$/.test(text) ||
+        /^[\d\s]+$/.test(text) && !/\d{4}/.test(text)) { // Pure numbers without year pattern
       para.parentNode?.removeChild(para)
-    } else {
-      // Third pass: for short lines (< 30 chars), reduce spacing before paragraph
-      if (text.length < 30 && text.length > 0) {
-        const pPr = directChildren(para, 'pPr')[0]
-        if (pPr) {
-          const spacing = directChildren(pPr, 'spacing')[0]
-          if (spacing) {
-            // Reduce spacing before/after to make short lines more compact
-            const before = spacing.getAttribute('w:before')
-            const after = spacing.getAttribute('w:after')
-            if (before) spacing.setAttribute('w:before', Math.max(0, Math.round(parseInt(before) * 0.6)).toString())
-            if (after) spacing.setAttribute('w:after', Math.max(0, Math.round(parseInt(after) * 0.6)).toString())
-          }
-        }
-      }
     }
   }
 }
