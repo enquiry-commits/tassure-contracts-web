@@ -7,8 +7,16 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 const COMPANY_EMPLOYEES = new Set([
-  'esther@tassure.com',
-  'chelsea@tassure.com',
+  'cindyzhang@tassure.com',
+  'samuellng@tassure.com',
+  'yeesoon@tassure.com',
+  'hoechyi@tassure.com',
+  'sengxin@tassure.com',
+  'jennylai@tassure.com',
+  'shiming@tassure.com',
+  'kahye@tassure.com',
+  'shemin@tassure.com',
+  'minquan@tassure.com',
   'vincent@tassure.com',
 ])
 

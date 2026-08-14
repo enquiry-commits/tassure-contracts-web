@@ -152,6 +152,33 @@ function GeneratePageContent() {
           sessionError
         )
         router.replace('/login')
+        return
+      }
+
+      // Verify user email is authorized
+      const userEmail = session.user?.email
+      const authorizedEmails = new Set([
+        'cindyzhang@tassure.com',
+        'samuellng@tassure.com',
+        'yeesoon@tassure.com',
+        'hoechyi@tassure.com',
+        'sengxin@tassure.com',
+        'jennylai@tassure.com',
+        'shiming@tassure.com',
+        'kahye@tassure.com',
+        'shemin@tassure.com',
+        'minquan@tassure.com',
+        'vincent@tassure.com',
+      ])
+
+      if (!userEmail || !authorizedEmails.has(userEmail)) {
+        console.error(
+          '[Proposal Generator] Unauthorized email:',
+          userEmail
+        )
+        // Sign out and redirect to login
+        await supabase.auth.signOut()
+        router.replace('/login?error=Unauthorized')
       }
     }
 

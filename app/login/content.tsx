@@ -29,6 +29,9 @@ export default function LoginContent() {
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          queryParams: {
+            hd: 'tassure.com', // Restrict to @tassure.com domain
+          },
         },
       })
 
@@ -54,7 +57,9 @@ export default function LoginContent() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-              {error}
+              {error === 'Unauthorized'
+                ? 'Access denied. Your email is not authorized to use this system.'
+                : error}
             </div>
           )}
 
