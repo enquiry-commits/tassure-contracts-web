@@ -1229,6 +1229,23 @@ function processEpTable(
   focServicesSet: Set<string>,
   languageMode: 'bilingual' | 'english-only' = 'bilingual',
 ): void {
+  // Preserve row numbers for English template
+  const preserveRowNums = languageMode === 'english-only'
+  const existingRowNums: Map<Element, string> = new Map()
+
+  if (preserveRowNums) {
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length > 0) {
+        const numCell = cells[0]
+        const numText = cellText(numCell).trim()
+        if (numText && /^\d+$/.test(numText)) {
+          existingRowNums.set(row, numText)
+        }
+      }
+    }
+  }
+
   // Capture a valid data row BEFORE removal — used as reference for dynamic row cloning.
   // Must be captured here (pre-removal) to guarantee a proper template row is available.
   let epPreRef: Element | null = null
