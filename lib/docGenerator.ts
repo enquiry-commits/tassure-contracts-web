@@ -894,7 +894,7 @@ function processMainTable(
             }
           }
 
-          // EN: Calibri 10pt
+          // EN: Calibri 10pt (first paragraph)
           const p0 = xmlDoc.createElement('w:p')
           const p0Pr = xmlDoc.createElement('w:pPr')
           const p0Spacing = xmlDoc.createElement('w:spacing')
@@ -909,7 +909,7 @@ function processMainTable(
             descCell.appendChild(p0)
           }
 
-          // CN: Microsoft YaHei 9pt (all fonts in this line)
+          // CN: Microsoft YaHei 9pt (second paragraph, after English)
           if (descCN) {
             const p1 = xmlDoc.createElement('w:p')
             const p1Pr = xmlDoc.createElement('w:pPr')
@@ -919,11 +919,8 @@ function processMainTable(
             p1Pr.appendChild(p1Spacing)
             p1.appendChild(p1Pr)
             p1.appendChild(makeCalibriRun(descCN, '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
-            if (descTcPr) {
-              descCell.insertBefore(p1, descTcPr.nextSibling || p0.nextSibling)
-            } else {
-              descCell.appendChild(p1)
-            }
+            // Always append after p0, ensuring English is always before Chinese
+            descCell.appendChild(p1)
           }
         }
 
