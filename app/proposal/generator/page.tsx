@@ -169,6 +169,7 @@ function GeneratePageContent() {
         'shemin@tassure.com',
         'minquan@tassure.com',
         'vincent@tassure.com',
+        'jaytay@tassure.com',
       ])
 
       if (!userEmail || !authorizedEmails.has(userEmail)) {
