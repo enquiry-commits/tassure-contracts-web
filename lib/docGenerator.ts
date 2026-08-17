@@ -666,12 +666,25 @@ function renumberTableRows(tbl: Element): void {
       ...allDescendants(numCell, 'w:t'),
     ]
     const combined = allT.map(t => t.textContent ?? '').join('')
-    if (!/^\d+$/.test(combined.trim())) continue
-    for (const t of allT) {
-      if (/^\d+$/.test((t.textContent ?? '').trim())) {
-        t.textContent = String(counter++)
-        break
+
+    // If cell is empty or has a digit, this is a numberable row
+    const hasExistingDigit = /^\d+$/.test(combined.trim())
+    const isEmpty = combined.trim() === ''
+
+    if (!hasExistingDigit && !isEmpty) continue
+
+    // Update or create text node with new number
+    if (hasExistingDigit) {
+      // Replace existing digit
+      for (const t of allT) {
+        if (/^\d+$/.test((t.textContent ?? '').trim())) {
+          t.textContent = String(counter++)
+          break
+        }
       }
+    } else if (isEmpty && allT.length > 0) {
+      // Fill in empty cell with new number
+      allT[0].textContent = String(counter++)
     }
   }
 }
@@ -750,7 +763,24 @@ function processMainTable(
     MAIN_PDPA: 'PDPA', MAIN_CORP_CONSULT: 'CORP_CONSULT',
   }
 
-  // Step 1 — set fee content for every surviving row.
+  // Step 1 — preserve row numbers for English template, update fees for all rows
+  const preserveRowNums = languageMode === 'english-only'
+  const existingRowNums: Map<Element, string> = new Map()
+
+  if (preserveRowNums) {
+    // Capture existing row numbers before any modifications
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length > 0) {
+        const numCell = cells[0]
+        const numText = cellText(numCell).trim()
+        if (numText && /^\d+$/.test(numText)) {
+          existingRowNums.set(row, numText)
+        }
+      }
+    }
+  }
+
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
@@ -1410,7 +1440,32 @@ function processEpTable(
     }
   }
 
-  renumberTableRows(tbl)
+  // For English template, preserve existing row numbers; for bilingual, renumber everything
+  if (languageMode !== 'english-only') {
+    renumberTableRows(tbl)
+  } else {
+    // For English template: restore preserved row numbers and number new dynamic rows
+    for (const [row, oldNum] of existingRowNums.entries()) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length > 0) {
+        const numCell = cells[0]
+        const allT = [...allDescendants(numCell, 't'), ...allDescendants(numCell, 'w:t')]
+        if (allT.length > 0) allT[0].textContent = oldNum
+      }
+    }
+    // Renumber only new dynamic rows (those not in existingRowNums)
+    let newRowCounter = (existingRowNums.size > 0 ? Math.max(...Array.from(existingRowNums.values()).map(n => parseInt(n, 10))) + 1 : 1)
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0 || existingRowNums.has(row)) continue
+      const numCell = cells[0]
+      const numText = cellText(numCell).trim()
+      if (numText === '' || !/^\d+$/.test(numText)) {
+        const allT = [...allDescendants(numCell, 't'), ...allDescendants(numCell, 'w:t')]
+        if (allT.length > 0) allT[0].textContent = String(newRowCounter++)
+      }
+    }
+  }
 }
 
 // ── reformat Qty cells in changes table ──────────────────────────────────────
