@@ -383,6 +383,8 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
   const paras = directChildren(body, 'p')
   if (paras.length === 0) return
 
+  const isEnglishOnly = input.languageMode === 'english-only'
+
   // Para 0: update date text
   const datePara = paras[0]
   const runs0 = allDescendants(datePara, 'r')
@@ -391,18 +393,36 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
     if (ts.length > 0) ts[0].textContent = `Date:  ${input.date}`
   }
 
-  // Clone para 0 → company name paragraph, clear all runs, insert new run
-  const companyPara = datePara.cloneNode(true) as Element
-  for (const r of allDescendants(companyPara, 'r')) {
-    r.parentNode?.removeChild(r)
+  // Para 1: update company name (handle both bilingual and English templates)
+  if (paras.length > 1) {
+    const companyPara = paras[1]
+    const companyRuns = allDescendants(companyPara, 'r')
+    if (companyRuns.length > 0) {
+      const ts = allDescendants(companyRuns[0], 't')
+      if (ts.length > 0) {
+        if (isEnglishOnly) {
+          ts[0].textContent = `Company Name:  ${input.companyName}`
+        } else {
+          ts[0].textContent = `Company Name  企业名字:  ${input.companyName}`
+        }
+      }
+    }
   }
-  const newRun = xmlDoc.createElement('w:r')
-  const newT = xmlDoc.createElement('w:t')
-  newT.setAttribute('xml:space', 'preserve')
-  newT.textContent = `Company Name  企业名字:  ${input.companyName}`
-  newRun.appendChild(newT)
-  companyPara.appendChild(newRun)
-  body.insertBefore(companyPara, datePara.nextSibling)
+
+  // If bilingual, may need to insert company name para (for older templates)
+  if (!isEnglishOnly && paras.length < 2) {
+    const companyPara = datePara.cloneNode(true) as Element
+    for (const r of allDescendants(companyPara, 'r')) {
+      r.parentNode?.removeChild(r)
+    }
+    const newRun = xmlDoc.createElement('w:r')
+    const newT = xmlDoc.createElement('w:t')
+    newT.setAttribute('xml:space', 'preserve')
+    newT.textContent = `Company Name  企业名字:  ${input.companyName}`
+    newRun.appendChild(newT)
+    companyPara.appendChild(newRun)
+    body.insertBefore(companyPara, datePara.nextSibling)
+  }
 
   // Find "Dear Management" paragraph and update salutation
   for (const p of directChildren(body, 'p')) {
@@ -411,10 +431,9 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
     const ts = allDescendants(runs[0], 't')
     if (ts.length === 0) continue
     if ((ts[0].textContent ?? '').includes('Dear Management')) {
-      let salEn = input.salutationEn
-      if (!salEn.endsWith(' ')) salEn += '  '
-      ts[0].textContent = salEn
-      if (runs.length > 1) {
+      ts[0].textContent = input.salutationEn
+      // Only update Chinese salutation if bilingual mode
+      if (!isEnglishOnly && runs.length > 1) {
         const ts2 = allDescendants(runs[1], 't')
         if (ts2.length > 0) ts2[0].textContent = input.salutationCn
       }
@@ -1685,7 +1704,10 @@ function removeChineseContent(body: Element): void {
 // ── main export ───────────────────────────────────────────────────────────────
 
 export async function generateDocx(input: DocInput): Promise<Buffer> {
-  const templatePath = join(process.cwd(), 'template', 'Tassure_Proposal_Template.docx')
+  const templateFileName = input.languageMode === 'english-only'
+    ? 'Tassure_Proposal_EN.docx'
+    : 'Tassure_Proposal_Template.docx'
+  const templatePath = join(process.cwd(), 'template', templateFileName)
   const templateBuffer = readFileSync(templatePath)
 
   const zip = await JSZip.loadAsync(templateBuffer)
