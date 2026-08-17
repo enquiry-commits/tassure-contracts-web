@@ -1257,21 +1257,23 @@ function processOptTable(
       if (cells.length > 2 && existingFeeValues.has(row)) {
         const feeCell = cells[2]
         const feeValue = existingFeeValues.get(row)
-        // Clear existing fee content and restore original value
-        const existingParas = directChildren(feeCell, 'p')
-        for (const p of existingParas) p.parentNode?.removeChild(p)
-        const newPara = xmlDoc.createElement('w:p')
-        const pPr = xmlDoc.createElement('w:pPr')
-        const jc = xmlDoc.createElement('w:jc')
-        jc.setAttribute('w:val', 'left')
-        pPr.appendChild(jc)
-        const spacing = xmlDoc.createElement('w:spacing')
-        spacing.setAttribute('w:before', '0')
-        spacing.setAttribute('w:after', '0')
-        pPr.appendChild(spacing)
-        newPara.appendChild(pPr)
-        newPara.appendChild(makeCalibriRun(feeValue, '20', xmlDoc))
-        feeCell.appendChild(newPara)
+        if (feeValue) {
+          // Clear existing fee content and restore original value
+          const existingParas = directChildren(feeCell, 'p')
+          for (const p of existingParas) p.parentNode?.removeChild(p)
+          const newPara = xmlDoc.createElement('w:p')
+          const pPr = xmlDoc.createElement('w:pPr')
+          const jc = xmlDoc.createElement('w:jc')
+          jc.setAttribute('w:val', 'left')
+          pPr.appendChild(jc)
+          const spacing = xmlDoc.createElement('w:spacing')
+          spacing.setAttribute('w:before', '0')
+          spacing.setAttribute('w:after', '0')
+          pPr.appendChild(spacing)
+          newPara.appendChild(pPr)
+          newPara.appendChild(makeCalibriRun(feeValue, '20', xmlDoc))
+          feeCell.appendChild(newPara)
+        }
       }
     }
     // Renumber only new dynamic rows (those not in existingRowNums)
@@ -1560,21 +1562,23 @@ function processEpTable(
       if (cells.length > 2 && existingFeeValues.has(row)) {
         const feeCell = cells[2]
         const feeValue = existingFeeValues.get(row)
-        // Clear existing fee content and restore original value
-        const existingParas = directChildren(feeCell, 'p')
-        for (const p of existingParas) p.parentNode?.removeChild(p)
-        const newPara = xmlDoc.createElement('w:p')
-        const pPr = xmlDoc.createElement('w:pPr')
-        const jc = xmlDoc.createElement('w:jc')
-        jc.setAttribute('w:val', 'left')
-        pPr.appendChild(jc)
-        const spacing = xmlDoc.createElement('w:spacing')
-        spacing.setAttribute('w:before', '0')
-        spacing.setAttribute('w:after', '0')
-        pPr.appendChild(spacing)
-        newPara.appendChild(pPr)
-        newPara.appendChild(makeCalibriRun(feeValue, '20', xmlDoc))
-        feeCell.appendChild(newPara)
+        if (feeValue) {
+          // Clear existing fee content and restore original value
+          const existingParas = directChildren(feeCell, 'p')
+          for (const p of existingParas) p.parentNode?.removeChild(p)
+          const newPara = xmlDoc.createElement('w:p')
+          const pPr = xmlDoc.createElement('w:pPr')
+          const jc = xmlDoc.createElement('w:jc')
+          jc.setAttribute('w:val', 'left')
+          pPr.appendChild(jc)
+          const spacing = xmlDoc.createElement('w:spacing')
+          spacing.setAttribute('w:before', '0')
+          spacing.setAttribute('w:after', '0')
+          pPr.appendChild(spacing)
+          newPara.appendChild(pPr)
+          newPara.appendChild(makeCalibriRun(feeValue, '20', xmlDoc))
+          feeCell.appendChild(newPara)
+        }
       }
     }
     // Renumber only new dynamic rows (those not in existingRowNums)
