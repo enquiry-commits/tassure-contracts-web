@@ -720,6 +720,29 @@ function processMainTable(
   // The template already contains a built-in <w:br type="page"/> paragraph immediately
   // before the "Company Incorporation..." heading, so no additional page break is needed here.
 
+  // IMPORTANT: Capture existing row numbers BEFORE any modifications (BEFORE removal)
+  const preserveRowNums = languageMode === 'english-only'
+  const existingRowNums: Map<Element, string> = new Map()
+  const existingFeeValues: Map<Element, string> = new Map()
+
+  if (preserveRowNums) {
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length >= 3) {
+        const numCell = cells[0]
+        const feeCell = cells[2]
+        const numText = cellText(numCell).trim()
+        const feeText = cellText(feeCell).trim()
+        if (numText && /^\d+$/.test(numText)) {
+          existingRowNums.set(row, numText)
+        }
+        if (feeText && feeText !== 'Fee (SGD)' && feeText !== 'Fee(SGD)') {
+          existingFeeValues.set(row, feeText)
+        }
+      }
+    }
+  }
+
   // Calculate total dynamically from SERVICES array.
   let newTotal = 0
   for (const svc of SERVICES) {
@@ -763,23 +786,7 @@ function processMainTable(
     MAIN_PDPA: 'PDPA', MAIN_CORP_CONSULT: 'CORP_CONSULT',
   }
 
-  // Step 1 — preserve row numbers for English template, update fees for all rows
-  const preserveRowNums = languageMode === 'english-only'
-  const existingRowNums: Map<Element, string> = new Map()
-
-  if (preserveRowNums) {
-    // Capture existing row numbers before any modifications
-    for (const row of directChildren(tbl, 'tr')) {
-      const cells = directChildren(row, 'tc')
-      if (cells.length > 0) {
-        const numCell = cells[0]
-        const numText = cellText(numCell).trim()
-        if (numText && /^\d+$/.test(numText)) {
-          existingRowNums.set(row, numText)
-        }
-      }
-    }
-  }
+  // Step 1 — set fee content for every surviving row
 
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
@@ -1457,17 +1464,38 @@ function processEpTable(
     }
   }
 
-  // For English template, preserve existing row numbers; for bilingual, renumber everything
+  // For English template, preserve existing row numbers and fees; for bilingual, renumber everything
   if (languageMode !== 'english-only') {
     renumberTableRows(tbl)
   } else {
-    // For English template: restore preserved row numbers and number new dynamic rows
+    // For English template: restore preserved row numbers and fees
     for (const [row, oldNum] of existingRowNums.entries()) {
       const cells = directChildren(row, 'tc')
       if (cells.length > 0) {
+        // Restore row number
         const numCell = cells[0]
         const allT = [...allDescendants(numCell, 't'), ...allDescendants(numCell, 'w:t')]
         if (allT.length > 0) allT[0].textContent = oldNum
+      }
+      // Restore fee value if it exists
+      if (cells.length > 2 && existingFeeValues.has(row)) {
+        const feeCell = cells[2]
+        const feeValue = existingFeeValues.get(row)
+        // Clear existing fee content and restore original value
+        const existingParas = directChildren(feeCell, 'p')
+        for (const p of existingParas) p.parentNode?.removeChild(p)
+        const newPara = xmlDoc.createElement('w:p')
+        const pPr = xmlDoc.createElement('w:pPr')
+        const jc = xmlDoc.createElement('w:jc')
+        jc.setAttribute('w:val', 'left')
+        pPr.appendChild(jc)
+        const spacing = xmlDoc.createElement('w:spacing')
+        spacing.setAttribute('w:before', '0')
+        spacing.setAttribute('w:after', '0')
+        pPr.appendChild(spacing)
+        newPara.appendChild(pPr)
+        newPara.appendChild(makeCalibriRun(feeValue, '20', xmlDoc))
+        feeCell.appendChild(newPara)
       }
     }
     // Renumber only new dynamic rows (those not in existingRowNums)
