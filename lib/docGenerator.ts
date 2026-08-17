@@ -772,11 +772,15 @@ function processMainTable(
     if (/^\d+$/.test(cellText(cells[0]).trim())) { dataRefRow = row; break }
   }
 
+  // For English-only mode with new template, keep all rows
+  // For bilingual mode, use rowLinked filtering
   const rowsToRemove: Element[] = []
-  for (const row of directChildren(tbl, 'tr')) {
-    const cells = directChildren(row, 'tc')
-    if (cells.length === 0) continue
-    if (!rowLinked(cells, 'main', sel, mapping)) rowsToRemove.push(row)
+  if (languageMode !== 'english-only') {
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0) continue
+      if (!rowLinked(cells, 'main', sel, mapping)) rowsToRemove.push(row)
+    }
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
@@ -1145,12 +1149,22 @@ function processOptTable(
 
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
-  for (const row of directChildren(tbl, 'tr')) {
-    const cells = directChildren(row, 'tc')
-    if (cells.length === 0) continue
-    if (!rowLinked(cells, 'opt', sel, mapping)) {
-      rowsToRemove.push(row)
-    } else {
+  if (languageMode !== 'english-only') {
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0) continue
+      if (!rowLinked(cells, 'opt', sel, mapping)) {
+        rowsToRemove.push(row)
+      } else {
+        const txt = cells.map(c => cellText(c)).join(' ')
+        if (!txt.includes('Service Scope') && !txt.includes('Total')) dataRowsKept++
+      }
+    }
+  } else {
+    // English-only: count all non-header rows
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0) continue
       const txt = cells.map(c => cellText(c)).join(' ')
       if (!txt.includes('Service Scope') && !txt.includes('Total')) dataRowsKept++
     }
@@ -1344,12 +1358,22 @@ function processEpTable(
 
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
-  for (const row of directChildren(tbl, 'tr')) {
-    const cells = directChildren(row, 'tc')
-    if (cells.length === 0) continue
-    if (!rowLinked(cells, 'ep', sel, mapping)) {
-      rowsToRemove.push(row)
-    } else {
+  if (languageMode !== 'english-only') {
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0) continue
+      if (!rowLinked(cells, 'ep', sel, mapping)) {
+        rowsToRemove.push(row)
+      } else {
+        const txt = cells.map(c => cellText(c)).join(' ')
+        if (!txt.includes('Service Scope')) dataRowsKept++
+      }
+    }
+  } else {
+    // English-only: count all non-header rows
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0) continue
       const txt = cells.map(c => cellText(c)).join(' ')
       if (!txt.includes('Service Scope')) dataRowsKept++
     }
@@ -1886,7 +1910,7 @@ function removeChineseContent(body: Element): void {
 export async function generateDocx(input: DocInput): Promise<Buffer> {
   const templateFileName = input.languageMode === 'english-only'
     ? 'Tassure_Proposal_EN.docx'
-    : 'Tassure_Proposal_Template.docx'
+    : 'Tassure_Proposal_CNEN.docx'
   const templatePath = join(process.cwd(), 'template', templateFileName)
   const templateBuffer = readFileSync(templatePath)
 
