@@ -1112,6 +1112,29 @@ function processOptTable(
     UNAUDITEDFS: 700, COMPANYTAX: 700, PERSONALTAX: 300, PAYROLL: 600,
   }
 
+  // IMPORTANT: Capture existing row numbers and fees BEFORE any modifications (BEFORE removal)
+  const preserveRowNums = languageMode === 'english-only'
+  const existingRowNums: Map<Element, string> = new Map()
+  const existingFeeValues: Map<Element, string> = new Map()
+
+  if (preserveRowNums) {
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length >= 3) {
+        const numCell = cells[0]
+        const feeCell = cells[2]
+        const numText = cellText(numCell).trim()
+        const feeText = cellText(feeCell).trim()
+        if (numText && /^\d+$/.test(numText)) {
+          existingRowNums.set(row, numText)
+        }
+        if (feeText && feeText !== 'Fee (SGD)' && feeText !== 'Fee(SGD)') {
+          existingFeeValues.set(row, feeText)
+        }
+      }
+    }
+  }
+
   // Capture a valid data row BEFORE removal to use as clone reference in insertExtraOptRows
   let optDataRef: Element | undefined = undefined
   for (const row of directChildren(tbl, 'tr')) {
@@ -1216,7 +1239,54 @@ function processOptTable(
   }
 
   insertExtraOptRows(tbl, sel, feeOv, focServicesSet, xmlDoc, optDataRef)
-  renumberTableRows(tbl)
+
+  // For English template, preserve existing row numbers and fees; for bilingual, renumber everything
+  if (languageMode !== 'english-only') {
+    renumberTableRows(tbl)
+  } else {
+    // For English template: restore preserved row numbers and fees
+    for (const [row, oldNum] of existingRowNums.entries()) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length > 0) {
+        // Restore row number
+        const numCell = cells[0]
+        const allT = [...allDescendants(numCell, 't'), ...allDescendants(numCell, 'w:t')]
+        if (allT.length > 0) allT[0].textContent = oldNum
+      }
+      // Restore fee value if it exists
+      if (cells.length > 2 && existingFeeValues.has(row)) {
+        const feeCell = cells[2]
+        const feeValue = existingFeeValues.get(row)
+        // Clear existing fee content and restore original value
+        const existingParas = directChildren(feeCell, 'p')
+        for (const p of existingParas) p.parentNode?.removeChild(p)
+        const newPara = xmlDoc.createElement('w:p')
+        const pPr = xmlDoc.createElement('w:pPr')
+        const jc = xmlDoc.createElement('w:jc')
+        jc.setAttribute('w:val', 'left')
+        pPr.appendChild(jc)
+        const spacing = xmlDoc.createElement('w:spacing')
+        spacing.setAttribute('w:before', '0')
+        spacing.setAttribute('w:after', '0')
+        pPr.appendChild(spacing)
+        newPara.appendChild(pPr)
+        newPara.appendChild(makeCalibriRun(feeValue, '20', xmlDoc))
+        feeCell.appendChild(newPara)
+      }
+    }
+    // Renumber only new dynamic rows (those not in existingRowNums)
+    let newRowCounter = (existingRowNums.size > 0 ? Math.max(...Array.from(existingRowNums.values()).map(n => parseInt(n, 10))) + 1 : 1)
+    for (const row of directChildren(tbl, 'tr')) {
+      const cells = directChildren(row, 'tc')
+      if (cells.length === 0 || existingRowNums.has(row)) continue
+      const numCell = cells[0]
+      const numText = cellText(numCell).trim()
+      if (numText === '' || !/^\d+$/.test(numText)) {
+        const allT = [...allDescendants(numCell, 't'), ...allDescendants(numCell, 'w:t')]
+        if (allT.length > 0) allT[0].textContent = String(newRowCounter++)
+      }
+    }
+  }
 
   const rows = directChildren(tbl, 'tr')
   if (rows.length > 0) {
@@ -1236,9 +1306,10 @@ function processEpTable(
   focServicesSet: Set<string>,
   languageMode: 'bilingual' | 'english-only' = 'bilingual',
 ): void {
-  // Preserve row numbers for English template
+  // Preserve row numbers and fees for English template
   const preserveRowNums = languageMode === 'english-only'
   const existingRowNums: Map<Element, string> = new Map()
+  const existingFeeValues: Map<Element, string> = new Map()
 
   if (preserveRowNums) {
     for (const row of directChildren(tbl, 'tr')) {
@@ -1248,6 +1319,14 @@ function processEpTable(
         const numText = cellText(numCell).trim()
         if (numText && /^\d+$/.test(numText)) {
           existingRowNums.set(row, numText)
+        }
+      }
+      // Capture fee values from existing rows
+      if (cells.length >= 3) {
+        const feeCell = cells[2]
+        const feeText = cellText(feeCell).trim()
+        if (feeText && feeText !== 'Fee (SGD)' && feeText !== 'Fee(SGD)') {
+          existingFeeValues.set(row, feeText)
         }
       }
     }
