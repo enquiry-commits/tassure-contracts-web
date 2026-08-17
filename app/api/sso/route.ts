@@ -18,6 +18,7 @@ const COMPANY_EMPLOYEES = new Set([
   'shemin@tassure.com',
   'minquan@tassure.com',
   'vincent@tassure.com',
+  'jaytay@tassure.com',
 ])
 
 export async function GET(req: NextRequest) {
