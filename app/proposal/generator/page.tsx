@@ -824,14 +824,20 @@ function ServiceRow({
   const isNumericFoc = isFocType && focMode === 'SGD'
   const isNumeric = !isDiscount && !isFocType && !isQuote && svc.fee !== null
 
-  const discountRowBg = isDiscount ? '#FFF5F6' : rowBg
+  const isNdDeposit2 = svc.key === 'ND_DEPOSIT2'
+  const discountRowBg = isDiscount ? '#FFF5F6' : (isNdDeposit2 ? '#EBF1F8' : rowBg)
   const discountBorder = isDiscount ? '2px solid #E8A0A8' : undefined
 
   return (
     <>
       <div className="flex items-center" style={{ backgroundColor: discountRowBg, borderTop: isDiscount ? discountBorder : undefined, borderBottom: isDiscount ? discountBorder : undefined }}>
+        {/* Arrow prefix for ND_DEPOSIT2 */}
+        {isNdDeposit2 && (
+          <div className="w-6 flex justify-center shrink-0 text-[#6B7FA0] text-lg">↳</div>
+        )}
+
         {/* Checkbox */}
-        <div className="w-10 flex justify-center shrink-0">
+        <div className={`${isNdDeposit2 ? 'w-8' : 'w-10'} flex justify-center shrink-0`}>
           <input
             type="checkbox"
             checked={checked}
@@ -844,10 +850,10 @@ function ServiceRow({
         {/* Name */}
         <div className="flex-1 py-2.5 pr-3">
           <div className={`text-sm font-bold ${isDiscount ? 'text-[#8B1A2A]' : 'text-[#1A1A2E]'}`}>
-            {svc.key === 'ND_DEPOSIT2' ? '↳ ' : ''}{svc.en}
+            {svc.en}
           </div>
           <div className={`text-xs mt-0.5 ${isDiscount ? 'text-[#C06070]' : 'text-[#6B7FA0]'}`}>
-            {svc.key === 'ND_DEPOSIT2' ? '↳ ' : ''}{svc.cn}
+            {svc.cn}
           </div>
         </div>
 
