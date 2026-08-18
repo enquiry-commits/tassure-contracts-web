@@ -64,18 +64,19 @@ function cellText(tc: Element): string {
   return allDescendants(tc, 't').map(t => t.textContent ?? '').join('')
 }
 
-function rowIdForCell(text: string, table: string): string | null {
-  for (const [id, rd] of Object.entries(ROW_DEFS)) {
+function rowIdForCell(text: string, table: string, languageMode?: string): string | null {
+  const defs = languageMode === 'english-only' ? ROW_DEFS_EN : ROW_DEFS
+  for (const [id, rd] of Object.entries(defs)) {
     if (rd.table === table && text.includes(rd.match)) return id
   }
   return null
 }
 
 // Join text from all cells so tables with a leading "No." column still match correctly.
-function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: Record<string, string[]>): boolean {
+function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: Record<string, string[]>, languageMode?: string): boolean {
   const text = cells.map(c => cellText(c)).join(' ')
   if (text.includes('Service Scope') || text.includes('Total')) return true
-  const rid = rowIdForCell(text, table)
+  const rid = rowIdForCell(text, table, languageMode)
   if (rid === null) return true  // truly unknown rows always kept
   // FOC merge group rows are controlled directly by service selection, not via the configurable mapping
   if (table === 'main') {
@@ -89,9 +90,9 @@ function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: R
 }
 
 // Find row ID by searching across all cells (handles tables with a leading number column).
-function findRowId(cells: Element[], table: string): string | null {
+function findRowId(cells: Element[], table: string, languageMode?: string): string | null {
   const text = cells.map(c => cellText(c)).join(' ')
-  return rowIdForCell(text, table)
+  return rowIdForCell(text, table, languageMode)
 }
 
 function fmtNum(n: number): string {
@@ -781,7 +782,7 @@ function processMainTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    if (!rowLinked(cells, 'main', sel, mapping)) rowsToRemove.push(row)
+    if (!rowLinked(cells, 'main', sel, mapping, languageMode)) rowsToRemove.push(row)
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
@@ -831,7 +832,7 @@ function processMainTable(
       }
     }
 
-    const rid = findRowId(cells, 'main')
+    const rid = findRowId(cells, 'main', languageMode)
     if (rid === 'MAIN_ND_DEPOSIT') {
       const depositAmt = feeOv['ND_DEPOSIT']
       if (depositAmt !== undefined) updateFeeCell(cells[cells.length - 1], depositAmt, xmlDoc, languageMode)
@@ -1154,7 +1155,7 @@ function processOptTable(
     for (const row of directChildren(tbl, 'tr')) {
       const cells = directChildren(row, 'tc')
       if (cells.length === 0) continue
-      if (!rowLinked(cells, 'opt', sel, mapping)) {
+      if (!rowLinked(cells, 'opt', sel, mapping, languageMode)) {
         rowsToRemove.push(row)
       } else {
         const txt = cells.map(c => cellText(c)).join(' ')
@@ -1240,7 +1241,7 @@ function processOptTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const rid = findRowId(cells, 'opt')
+    const rid = findRowId(cells, 'opt', languageMode)
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
@@ -1316,7 +1317,7 @@ function processEpTable(
     for (const row of directChildren(tbl, 'tr')) {
       const cells = directChildren(row, 'tc')
       if (cells.length === 0) continue
-      if (!rowLinked(cells, 'ep', sel, mapping)) {
+      if (!rowLinked(cells, 'ep', sel, mapping, languageMode)) {
         rowsToRemove.push(row)
       } else {
         const txt = cells.map(c => cellText(c)).join(' ')
@@ -1343,7 +1344,7 @@ function processEpTable(
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
-    const rid = findRowId(cells, 'ep')
+    const rid = findRowId(cells, 'ep', languageMode)
     if (rid) {
       const svcKey = ROW_ID_TO_SVC[rid]
       if (svcKey) {
@@ -1377,7 +1378,7 @@ function processEpTable(
     let dpRow: Element | null = null
     for (const row of epRows) {
       const cells = directChildren(row, 'tc')
-      if (findRowId(cells, 'ep') === 'EP_DP') { dpRow = row; break }
+      if (findRowId(cells, 'ep', languageMode) === 'EP_DP') { dpRow = row; break }
     }
     const insertAfter = dpRow ?? epRows[epRows.length - 1]
     // Count existing template digit rows to assign the correct sequential number
@@ -1835,8 +1836,9 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   const body = bodies[0]
 
   const selected = new Set(input.selected)
+  const selectedMappingDef = input.languageMode === 'english-only' ? DEFAULT_MAPPING_EN : DEFAULT_MAPPING
   const mapping = input.sectionMapping ?? Object.fromEntries(
-    Object.entries(DEFAULT_MAPPING).map(([k, v]) => [k, [...v]])
+    Object.entries(selectedMappingDef).map(([k, v]) => [k, [...v]])
   )
   const focServicesSet = new Set(input.focServices ?? [])
 
