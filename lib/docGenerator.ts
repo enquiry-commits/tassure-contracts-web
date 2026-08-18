@@ -1813,28 +1813,8 @@ function removeChineseContent(body: Element): void {
   }
   processElement(body)
 
-  // Second pass: clean up empty paragraphs and ones with only punctuation/redundant numbers
-  function getParaText(p: Element): string {
-    const texts: string[] = []
-    for (const t of allDescendants(p, 't')) {
-      if (t.textContent) texts.push(t.textContent)
-    }
-    return texts.join('').trim()
-  }
-
-  const allParas = allDescendants(body, 'p')
-  for (let i = allParas.length - 1; i >= 0; i--) {
-    const para = allParas[i]
-    const text = getParaText(para)
-    // Remove if:
-    // - empty or only punctuation/whitespace
-    // - pure numbers (except years and amounts with currency symbols)
-    // - single digit or small numbers that look like metadata (1, 2, 32, 50)
-    if (!text || /^[\s\-_|/\\•·]*$/.test(text) ||
-        /^[\d\s]+$/.test(text) && !/\d{4}/.test(text)) { // Pure numbers without year pattern
-      para.parentNode?.removeChild(para)
-    }
-  }
+  // REMOVED: Second pass that deleted paragraphs - this was causing XML corruption
+  // Only first pass (text update) is safe
 }
 
 // ── main export ───────────────────────────────────────────────────────────────
@@ -1888,6 +1868,7 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   normalizeGeneralSpacing(body, xmlDoc)
 
   // Remove all Chinese content if english-only mode
+  // NOTE: Only first pass enabled (text update only, no node deletion)
   if (input.languageMode === 'english-only') {
     removeChineseContent(body)
   }
