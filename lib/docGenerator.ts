@@ -775,15 +775,12 @@ function processMainTable(
     if (/^\d+$/.test(cellText(cells[0]).trim())) { dataRefRow = row; break }
   }
 
-  // For English-only mode with new template, keep all rows
-  // For bilingual mode, use rowLinked filtering
+  // Filter rows based on user selection (applies to both bilingual and english-only modes)
   const rowsToRemove: Element[] = []
-  if (languageMode !== 'english-only') {
-    for (const row of directChildren(tbl, 'tr')) {
-      const cells = directChildren(row, 'tc')
-      if (cells.length === 0) continue
-      if (!rowLinked(cells, 'main', sel, mapping)) rowsToRemove.push(row)
-    }
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length === 0) continue
+    if (!rowLinked(cells, 'main', sel, mapping)) rowsToRemove.push(row)
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
