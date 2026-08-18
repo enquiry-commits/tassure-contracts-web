@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/proposal/layout,_N_T_/proposal/generator/layout,_N_T_/proposal/generator/page,_N_T_/proposal/generator"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/proposal/generator/__PAGE__",
+    "/proposal/generator",
+    "/proposal",
+    "/_index",
+    "/_head"
+  ]
+}

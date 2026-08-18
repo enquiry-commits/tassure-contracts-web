@@ -1,0 +1,13 @@
+var R=require("../../chunks/ssr/[turbopack]_runtime.js")("server/app/_not-found/page.js")
+R.c("server/chunks/ssr/[root-of-the-server]__09ot78p._.js")
+R.c("server/chunks/ssr/node_modules_08h8cko._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_esm_build_templates_app-page_0u_t-ua.js")
+R.c("server/chunks/ssr/[root-of-the-server]__0ia41n3._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_0ppctuh._.js")
+R.c("server/chunks/ssr/[root-of-the-server]__0va2-4e._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_0inhx6q._.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_0ghu-f7.js")
+R.c("server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_0cjv-23.js")
+R.c("server/chunks/ssr/0amv_tassure-contracts-web__next-internal_server_app__not-found_page_actions_0we8fo1.js")
+R.m(6394)
+module.exports=R.m(6394).exports

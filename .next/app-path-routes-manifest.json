@@ -1,0 +1,18 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/contracts/[id]/delivery/route": "/api/contracts/[id]/delivery",
+  "/api/contracts/[id]/remarks/route": "/api/contracts/[id]/remarks",
+  "/api/contracts/[id]/route": "/api/contracts/[id]",
+  "/api/contracts/[id]/signature/route": "/api/contracts/[id]/signature",
+  "/api/contracts/generate/route": "/api/contracts/generate",
+  "/api/contracts/route": "/api/contracts",
+  "/api/pic/route": "/api/pic",
+  "/api/sso/route": "/api/sso",
+  "/favicon.ico/route": "/favicon.ico",
+  "/login/page": "/login",
+  "/page": "/",
+  "/proposal/admin/page": "/proposal/admin",
+  "/proposal/generator/page": "/proposal/generator",
+  "/sso/callback/page": "/sso/callback"
+}

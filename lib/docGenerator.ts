@@ -25,6 +25,26 @@ export interface DocInput {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+// Get the appropriate definitions set based on language mode
+function getDefinitionSet(languageMode?: string): {
+  rowDefs: Record<string, { table: string; label: string; match: string }>
+  mapping: Record<string, string[]>
+  rowIdToSvc: Record<string, string>
+} {
+  if (languageMode === 'english-only') {
+    return {
+      rowDefs: ROW_DEFS_EN,
+      mapping: DEFAULT_MAPPING_EN,
+      rowIdToSvc: ROW_ID_TO_SVC_EN,
+    }
+  }
+  return {
+    rowDefs: ROW_DEFS,
+    mapping: DEFAULT_MAPPING,
+    rowIdToSvc: ROW_ID_TO_SVC,
+  }
+}
+
 function fmtSGD(n: number): string {
   const [int, dec] = n.toFixed(2).split('.')
   return 'SGD ' + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec
@@ -65,8 +85,8 @@ function cellText(tc: Element): string {
 }
 
 function rowIdForCell(text: string, table: string, languageMode?: string): string | null {
-  const defs = languageMode === 'english-only' ? ROW_DEFS_EN : ROW_DEFS
-  for (const [id, rd] of Object.entries(defs)) {
+  const { rowDefs } = getDefinitionSet(languageMode)
+  for (const [id, rd] of Object.entries(rowDefs)) {
     if (rd.table === table && text.includes(rd.match)) return id
   }
   return null
@@ -855,7 +875,8 @@ function processMainTable(
         setFeeCellFoc(feeCell, xmlDoc)
       }
     } else if (rid) {
-      const svcKey = ROW_ID_TO_SVC[rid]
+      const { rowIdToSvc } = getDefinitionSet(languageMode)
+      const svcKey = rowIdToSvc[rid]
       if (svcKey) {
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
@@ -1243,7 +1264,8 @@ function processOptTable(
     if (cells.length === 0) continue
     const rid = findRowId(cells, 'opt', languageMode)
     if (rid) {
-      const svcKey = ROW_ID_TO_SVC[rid]
+      const { rowIdToSvc } = getDefinitionSet(languageMode)
+      const svcKey = rowIdToSvc[rid]
       if (svcKey) {
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
@@ -1346,7 +1368,8 @@ function processEpTable(
     if (cells.length === 0) continue
     const rid = findRowId(cells, 'ep', languageMode)
     if (rid) {
-      const svcKey = ROW_ID_TO_SVC[rid]
+      const { rowIdToSvc } = getDefinitionSet(languageMode)
+      const svcKey = rowIdToSvc[rid]
       if (svcKey) {
         // Set row height to 1.1cm for PASSRENEWAL (EP renewal service)
         if (svcKey === 'PASSRENEWAL') {
@@ -1836,7 +1859,7 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   const body = bodies[0]
 
   const selected = new Set(input.selected)
-  const selectedMappingDef = input.languageMode === 'english-only' ? DEFAULT_MAPPING_EN : DEFAULT_MAPPING
+  const { mapping: selectedMappingDef } = getDefinitionSet(input.languageMode)
   const mapping = input.sectionMapping ?? Object.fromEntries(
     Object.entries(selectedMappingDef).map(([k, v]) => [k, [...v]])
   )

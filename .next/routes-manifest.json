@@ -1,0 +1,150 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "onMatchHeaders": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/api/contracts/[id]",
+      "regex": "^/api/contracts/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/contracts/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/contracts/[id]/delivery",
+      "regex": "^/api/contracts/([^/]+?)/delivery(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/contracts/(?<nxtPid>[^/]+?)/delivery(?:/)?$"
+    },
+    {
+      "page": "/api/contracts/[id]/remarks",
+      "regex": "^/api/contracts/([^/]+?)/remarks(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/contracts/(?<nxtPid>[^/]+?)/remarks(?:/)?$"
+    },
+    {
+      "page": "/api/contracts/[id]/signature",
+      "regex": "^/api/contracts/([^/]+?)/signature(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/contracts/(?<nxtPid>[^/]+?)/signature(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/api/contracts",
+      "regex": "^/api/contracts(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/contracts(?:/)?$"
+    },
+    {
+      "page": "/api/contracts/generate",
+      "regex": "^/api/contracts/generate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/contracts/generate(?:/)?$"
+    },
+    {
+      "page": "/api/pic",
+      "regex": "^/api/pic(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/pic(?:/)?$"
+    },
+    {
+      "page": "/api/sso",
+      "regex": "^/api/sso(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/sso(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/proposal/admin",
+      "regex": "^/proposal/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/proposal/admin(?:/)?$"
+    },
+    {
+      "page": "/proposal/generator",
+      "regex": "^/proposal/generator(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/proposal/generator(?:/)?$"
+    },
+    {
+      "page": "/sso/callback",
+      "regex": "^/sso/callback(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sso/callback(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}

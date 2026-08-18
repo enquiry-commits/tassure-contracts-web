@@ -1,0 +1,18 @@
+{
+  "/_global-error/page": "app/_global-error/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/contracts/[id]/delivery/route": "app/api/contracts/[id]/delivery/route.js",
+  "/api/contracts/[id]/remarks/route": "app/api/contracts/[id]/remarks/route.js",
+  "/api/contracts/[id]/route": "app/api/contracts/[id]/route.js",
+  "/api/contracts/[id]/signature/route": "app/api/contracts/[id]/signature/route.js",
+  "/api/contracts/generate/route": "app/api/contracts/generate/route.js",
+  "/api/contracts/route": "app/api/contracts/route.js",
+  "/api/pic/route": "app/api/pic/route.js",
+  "/api/sso/route": "app/api/sso/route.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/proposal/admin/page": "app/proposal/admin/page.js",
+  "/proposal/generator/page": "app/proposal/generator/page.js",
+  "/sso/callback/page": "app/sso/callback/page.js"
+}
