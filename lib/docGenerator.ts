@@ -1798,6 +1798,7 @@ function removeChineseContent(body: Element): void {
           .replace(/[＀-￯]/g, '') // Remove fullwidth forms
           .replace(/[一-鿿]/g, '') // Remove CJK unified ideographs
           .replace(/[㐀-䶿]/g, '') // Remove CJK extension A
+          .replace(/[\s/\\（）()]/g, (m) => m === '/' || m === '\\' ? '' : m) // Remove slashes and parens
           .trim()
 
         // Remove lines that end with Chinese punctuation followed by English (e.g., "$315）")
@@ -1806,7 +1807,8 @@ function removeChineseContent(body: Element): void {
         if (text) {
           node.textContent = text
         } else {
-          node.textContent = ''
+          // Remove empty text nodes from their parent (important for table cells)
+          node.parentNode?.removeChild(node)
         }
       } else if (node.nodeType === 1) {
         processElement(node as Element)
@@ -1815,19 +1817,20 @@ function removeChineseContent(body: Element): void {
   }
   processElement(body)
 
-  // Second pass: clean up empty paragraphs and ones with only punctuation/redundant numbers
-  function getParaText(p: Element): string {
+  // Second pass: clean up empty paragraphs and table cells with only punctuation/redundant content
+  function getElemText(el: Element): string {
     const texts: string[] = []
-    for (const t of allDescendants(p, 't')) {
+    for (const t of allDescendants(el, 't')) {
       if (t.textContent) texts.push(t.textContent)
     }
     return texts.join('').trim()
   }
 
+  // Clean up empty paragraphs
   const allParas = allDescendants(body, 'p')
   for (let i = allParas.length - 1; i >= 0; i--) {
     const para = allParas[i]
-    const text = getParaText(para)
+    const text = getElemText(para)
     // Remove if:
     // - empty or only punctuation/whitespace
     // - pure numbers (except years and amounts with currency symbols)
@@ -1835,6 +1838,28 @@ function removeChineseContent(body: Element): void {
     if (!text || /^[\s\-_|/\\•·]*$/.test(text) ||
         /^[\d\s]+$/.test(text) && !/\d{4}/.test(text)) { // Pure numbers without year pattern
       para.parentNode?.removeChild(para)
+    }
+  }
+
+  // Clean up table cells that became empty or have only whitespace/punctuation
+  const allCells = allDescendants(body, 'tc')
+  for (const cell of allCells) {
+    const text = getElemText(cell)
+    // If cell is now empty or only has punctuation, clear it to remove residual formatting
+    if (!text || /^[\s\-_|/\\•·()（）]*$/.test(text)) {
+      // Remove all child elements that are just runs with empty text
+      for (let i = cell.childNodes.length - 1; i >= 0; i--) {
+        const child = cell.childNodes[i]
+        if (child.nodeType === 1) {
+          const childEl = child as Element
+          if (childEl.localName === 'p' || childEl.localName === 'pPr') {
+            const childText = getElemText(childEl)
+            if (!childText || /^[\s\-_|/\\•·()（）]*$/.test(childText)) {
+              cell.removeChild(child)
+            }
+          }
+        }
+      }
     }
   }
 }
@@ -1890,10 +1915,9 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   normalizeGeneralSpacing(body, xmlDoc)
 
   // Remove all Chinese content if english-only mode
-  // TODO: Temporarily disabled to diagnose XML corruption issue
-  // if (input.languageMode === 'english-only') {
-  //   removeChineseContent(body)
-  // }
+  if (input.languageMode === 'english-only') {
+    removeChineseContent(body)
+  }
 
   const serializer = new XMLSerializer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
