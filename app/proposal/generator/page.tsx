@@ -747,6 +747,7 @@ function QuoteBuilderTab({
                         onQuoteModeChange={m => onQuoteModeChange(svc.key, m)}
                         rowBg={i % 2 === 0 ? '#FFFFFF' : '#F5F9FF'}
                         showNdDeposit={svc.key === 'ND' && selected.has('ND')}
+                        disabled={svc.key === 'ND_DEPOSIT2' && !selected.has('ND2')}
                       />
                       {i < regularSvcs.length - 1 && (
                         <div className="h-px bg-[#E0EAF5] mx-4" />
@@ -775,6 +776,7 @@ function QuoteBuilderTab({
                           onQuoteModeChange={m => onQuoteModeChange(svc.key, m)}
                           rowBg='#FFF5F6'
                           showNdDeposit={false}
+                          disabled={svc.key === 'ND_DEPOSIT2' && !selected.has('ND2')}
                         />
                       ))}
                     </div>
@@ -806,12 +808,13 @@ interface SvcRowProps {
   onQuoteModeChange: (m: QuoteMode) => void
   rowBg: string
   showNdDeposit: boolean
+  disabled?: boolean
 }
 
 function ServiceRow({
   svc, checked, feeValue, ndDepositValue, focMode, quoteMode,
   onToggle, onFeeChange, onNdDepositChange, onFocModeChange, onQuoteModeChange,
-  rowBg, showNdDeposit,
+  rowBg, showNdDeposit, disabled,
 }: SvcRowProps) {
   const isDiscount = svc.fee_type === 'discount'
   const isFocType = svc.fee_type === 'foc' || svc.fee_type === 'bundled'
@@ -833,7 +836,8 @@ function ServiceRow({
             type="checkbox"
             checked={checked}
             onChange={onToggle}
-            className={`w-5 h-5 cursor-pointer ${isDiscount ? 'accent-[#8B1A2A]' : 'accent-[#1A3F6F]'}`}
+            disabled={disabled}
+            className={`w-5 h-5 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${isDiscount ? 'accent-[#8B1A2A]' : 'accent-[#1A3F6F]'}`}
           />
         </div>
 
