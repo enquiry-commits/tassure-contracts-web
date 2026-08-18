@@ -1888,10 +1888,9 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   normalizeGeneralSpacing(body, xmlDoc)
 
   // Remove all Chinese content if english-only mode
-  // TODO: Temporarily disabled to diagnose XML corruption issue
-  // if (input.languageMode === 'english-only') {
-  //   removeChineseContent(body)
-  // }
+  if (input.languageMode === 'english-only') {
+    removeChineseContent(body)
+  }
 
   const serializer = new XMLSerializer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
