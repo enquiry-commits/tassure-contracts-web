@@ -53,6 +53,7 @@ function initFeeValues(): Record<string, string> {
     }
   }
   m['ND_DEPOSIT'] = '3,000.00'
+  m['ND_DEPOSIT2'] = '3,000.00'
   return m
 }
 
@@ -684,7 +685,7 @@ function QuoteBuilderTab({
   }
   // Explicitly build table2 in template order; SECRETARIAL2/ADDRESS2 are the Table-2-only versions
   const svcByKey = Object.fromEntries(SERVICES.map(s => [s.key, s]))
-  groups['table2'] = ['ACCOUNTS', 'SECRETARIAL2', 'ADDRESS2', 'AR', 'UNAUDITEDFS', 'COMPANYTAX', 'PERSONALTAX', 'PAYROLL']
+  groups['table2'] = ['ACCOUNTS', 'SECRETARIAL2', 'ND2', 'ND_DEPOSIT2', 'ADDRESS2', 'AR', 'UNAUDITEDFS', 'COMPANYTAX', 'PERSONALTAX', 'PAYROLL']
     .map(k => svcByKey[k]).filter(Boolean)
 
   return (
