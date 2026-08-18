@@ -1798,16 +1798,14 @@ function removeChineseContent(body: Element): void {
           .replace(/[＀-￯]/g, '') // Remove fullwidth forms
           .replace(/[一-鿿]/g, '') // Remove CJK unified ideographs
           .replace(/[㐀-䶿]/g, '') // Remove CJK extension A
+          .replace(/[\s/\\（）()]/g, (m) => /[\s()]/.test(m) ? m : '') // Keep spaces/parens but remove slashes
           .trim()
 
         // Remove lines that end with Chinese punctuation followed by English (e.g., "$315）")
         text = text.replace(/(\d+|\$)\s*[）\)]*\s*$/, '$1') // Clean "$315）" → "$315"
 
-        if (text) {
-          node.textContent = text
-        } else {
-          node.textContent = ''
-        }
+        // Only update, never delete nodes - keep XML structure intact
+        node.textContent = text || ''
       } else if (node.nodeType === 1) {
         processElement(node as Element)
       }
