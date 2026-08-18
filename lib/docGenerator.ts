@@ -1805,8 +1805,11 @@ function removeChineseContent(body: Element): void {
         // Remove lines that end with Chinese punctuation followed by English (e.g., "$315）")
         text = text.replace(/(\d+|\$)\s*[）\)]*\s*$/, '$1') // Clean "$315）" → "$315"
 
+        // Remove text that's only brackets/punctuation (residual from removed Chinese)
+        text = text.replace(/^[\s()（）\[\]【】\{\}｛｝]*$/, '')
+
         // Only update, never delete nodes - keep XML structure intact
-        node.textContent = text || ''
+        node.textContent = text
       } else if (node.nodeType === 1) {
         processElement(node as Element)
       }
