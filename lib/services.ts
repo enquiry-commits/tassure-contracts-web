@@ -471,6 +471,47 @@ export const ROW_DEFS: Record<string, { table: string; label: string; match: str
   EP_SDL:          { table: 'ep',   label: 'EP Monthly SDL',                                  match: 'SDL' },
 }
 
+// ── Row definitions for ENGLISH-ONLY template (Tassure_Proposal_EN.docx) ──
+export const ROW_DEFS_EN: Record<string, { table: string; label: string; match: string }> = {
+  // ── Table 1 (main) ──
+  MAIN_INCORP:     { table: 'main', label: 'Company Incorporation Service',                   match: 'Company Incorporation Service' },
+  MAIN_SEC:        { table: 'main', label: 'Corporate Secretarial Services',                  match: 'Corporate Secretarial Services - Yearly' },
+  MAIN_BANK:       { table: 'main', label: 'Corporate Bank Account Opening Support',          match: 'Corporate Bank Account Opening Support' },
+  MAIN_ADDR:       { table: 'main', label: 'Registered Office and Mailing Address',           match: 'Registered Office and Mailing Address Services - Yearly' },
+  MAIN_ND:         { table: 'main', label: 'Local Nominee Director Service',                  match: 'Local Nominee Director Service - Yearly' },
+  MAIN_ND_DEPOSIT: { table: 'main', label: 'Additional Deposit',                              match: 'Additional Deposit' },
+  MAIN_EP:         { table: 'main', label: 'Employment Pass (EP) Application Service',         match: 'Employment Pass (EP) Application Service' },
+  MAIN_POST_EP:    { table: 'main', label: 'One-Time Post-EP Changes',                        match: 'One-Time Post-EP Changes' },
+  MAIN_CORPPASS:   { table: 'main', label: 'CorpPass Account Registration',                   match: 'CorpPass Account Registration' },
+  MAIN_PDPA:       { table: 'main', label: 'PDPA Compliance',                                 match: 'PDPA Compliance' },
+  MAIN_CORP_CONSULT: { table: 'main', label: 'Corporate Consultation Support',                match: 'Corporate Consultation Support' },
+  MAIN_CERT:       { table: 'main', label: 'Purchase of Certificate of Incorporation',        match: 'Purchase of Certificate of Incorporation' },
+  MAIN_DP_MAIN:    { table: 'main', label: 'DP Application',                                  match: 'DP Application' },
+  MAIN_LOC_MAIN:   { table: 'main', label: 'Letter of Consent (LOC) Application',             match: 'Letter of Consent (LOC) Application' },
+
+  // ── Table 2 (opt) ──
+  OPT_ACCOUNTS:    { table: 'opt',  label: 'Accounts Preparation - Yearly',                   match: 'Accounts Preparation - Yearly' },
+  OPT_SECRETARIAL: { table: 'opt',  label: 'Secretarial Services - Yearly',                   match: 'Secretarial Services - Yearly' },
+  OPT_ND:          { table: 'opt',  label: 'Local Nominee Director Service - Yearly',         match: 'Local Nominee Director Service - Yearly' },
+  OPT_ND_DEPOSIT:  { table: 'opt',  label: 'Additional Deposit',                              match: 'Additional Deposit' },
+  OPT_ADDRESS:     { table: 'opt',  label: 'Registered mailing Address - Yearly',             match: 'Registered mailing Address - Yearly' },
+  OPT_AR_GOV:      { table: 'opt',  label: 'Annual Return Services',                          match: 'Annual Return Services' },
+  OPT_UFS:         { table: 'opt',  label: 'Unaudit Report',                                  match: 'Unaudit Report' },
+  OPT_CORPTAX:     { table: 'opt',  label: 'Corporate Taxation',                              match: 'Corporate Taxation' },
+  OPT_PERSONALTAX: { table: 'opt',  label: 'Personal tax submission',                         match: 'Personal tax submission' },
+  OPT_PAYROLL:     { table: 'opt',  label: 'Payroll service',                                 match: 'Payroll service' },
+  OPT_XBRL:        { table: 'opt',  label: 'XBRL Reporting Service',                          match: 'XBRL Reporting Service' },
+  OPT_AUDIT:       { table: 'opt',  label: 'Auditing Services',                               match: 'Auditing Services' },
+  OPT_AIS_EN:      { table: 'opt',  label: 'AIS/IR8A Services',                               match: 'AIS/IR8A Services' },
+
+  // ── Table 3 (ep) ──
+  EP_RENEW:        { table: 'ep',   label: 'EP renewal service',                              match: 'EP renewal service' },
+  EP_DP:           { table: 'ep',   label: 'DP Application',                                  match: 'DP Application' },
+  EP_DP_RENEW:     { table: 'ep',   label: 'DP renewal service',                              match: 'DP renewal service' },
+  EP_LOC:          { table: 'ep',   label: 'Letter of Consent (LOC) Application',             match: 'Letter of Consent (LOC) Application' },
+  EP_SDL:          { table: 'ep',   label: 'EP monthly SDL',                                  match: 'EP monthly SDL' },
+}
+
 export const DEFAULT_MAPPING: Record<string, string[]> = {
   INCORP:        ['MAIN_INCORP'],
   SECRETARIAL:   ['MAIN_SEC'],
@@ -506,6 +547,42 @@ export const DEFAULT_MAPPING: Record<string, string[]> = {
   GOODWILL_DISC: ['MAIN_GOODWILL'],
 }
 
+// ── Service mapping for ENGLISH-ONLY template ──
+export const DEFAULT_MAPPING_EN: Record<string, string[]> = {
+  INCORP:        ['MAIN_INCORP'],
+  SECRETARIAL:   ['MAIN_SEC'],
+  SECRETARIAL2:  ['OPT_SECRETARIAL'],
+  BANK:          ['MAIN_BANK'],
+  ADDRESS:       ['MAIN_ADDR'],
+  ADDRESS2:      ['OPT_ADDRESS'],
+  ND:            ['MAIN_ND', 'MAIN_ND_DEPOSIT'],
+  EP:            ['MAIN_EP'],
+  POST_EP:       ['MAIN_POST_EP'],
+  CORPPASS:      ['MAIN_CORPPASS'],
+  PDPA:          ['MAIN_PDPA'],
+  CORP_CONSULT:  ['MAIN_CORP_CONSULT'],
+  ACCOUNTS:      ['OPT_ACCOUNTS'],
+  AR:            ['OPT_AR_GOV'],
+  UNAUDITEDFS:   ['OPT_UFS'],
+  AUDIT:         ['OPT_AUDIT'],
+  COMPANYTAX:    ['OPT_CORPTAX'],
+  PERSONALTAX:   ['OPT_PERSONALTAX'],
+  AIS:           [],
+  PAYROLL:       ['OPT_PAYROLL'],
+  ND2:           ['OPT_ND', 'OPT_ND_DEPOSIT'],
+  ND_DEPOSIT2:   ['OPT_ND_DEPOSIT'],
+  XBRL:          ['OPT_XBRL'],
+  PASSRENEWAL:   ['EP_RENEW'],
+  DP:            ['EP_DP'],
+  DP_RENEW:      ['EP_DP_RENEW'],
+  LOC:           ['EP_LOC'],
+  EP_SDL:        ['EP_SDL'],
+  CERT:          [],
+  DP_MAIN:       [],
+  LOC_MAIN:      [],
+  GOODWILL_DISC: [],
+}
+
 export const ROW_ID_TO_SVC: Record<string, string> = {
   MAIN_INCORP: 'INCORP', MAIN_SEC: 'SECRETARIAL', MAIN_ADDR: 'ADDRESS',
   MAIN_ND: 'ND', MAIN_ND_DEPOSIT: 'ND', MAIN_EP: 'EP', MAIN_BANK: 'BANK',
@@ -516,4 +593,17 @@ export const ROW_ID_TO_SVC: Record<string, string> = {
   EP_RENEW: 'PASSRENEWAL', EP_DP: 'DP', EP_DP_RENEW: 'DP_RENEW', EP_LOC: 'LOC', EP_SDL: 'EP_SDL',
   MAIN_CERT: 'CERT', MAIN_DP_MAIN: 'DP_MAIN', MAIN_LOC_MAIN: 'LOC_MAIN',
   MAIN_GOODWILL: 'GOODWILL_DISC',
+}
+
+// ── Row ID to Service mapping for ENGLISH-ONLY template ──
+export const ROW_ID_TO_SVC_EN: Record<string, string> = {
+  MAIN_INCORP: 'INCORP', MAIN_SEC: 'SECRETARIAL', MAIN_ADDR: 'ADDRESS',
+  MAIN_ND: 'ND', MAIN_ND_DEPOSIT: 'ND', MAIN_EP: 'EP', MAIN_BANK: 'BANK',
+  MAIN_CORP_CONSULT: 'CORP_CONSULT', MAIN_POST_EP: 'POST_EP', MAIN_CORPPASS: 'CORPPASS',
+  MAIN_PDPA: 'PDPA', MAIN_CERT: 'CERT', MAIN_DP_MAIN: 'DP_MAIN', MAIN_LOC_MAIN: 'LOC_MAIN',
+  OPT_ACCOUNTS: 'ACCOUNTS', OPT_SECRETARIAL: 'SECRETARIAL2', OPT_ADDRESS: 'ADDRESS2',
+  OPT_AR_GOV: 'AR', OPT_UFS: 'UNAUDITEDFS', OPT_CORPTAX: 'COMPANYTAX',
+  OPT_PERSONALTAX: 'PERSONALTAX', OPT_PAYROLL: 'PAYROLL', OPT_ND: 'ND2', OPT_ND_DEPOSIT: 'ND_DEPOSIT2',
+  OPT_XBRL: 'XBRL', OPT_AUDIT: 'AUDIT', OPT_AIS_EN: 'AIS',
+  EP_RENEW: 'PASSRENEWAL', EP_DP: 'DP', EP_DP_RENEW: 'DP_RENEW', EP_LOC: 'LOC', EP_SDL: 'EP_SDL',
 }

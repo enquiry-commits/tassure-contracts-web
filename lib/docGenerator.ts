@@ -5,6 +5,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import {
   SERVICES, TEMPLATE_ORDER, ROW_DEFS, DEFAULT_MAPPING, ROW_ID_TO_SVC,
+  ROW_DEFS_EN, DEFAULT_MAPPING_EN, ROW_ID_TO_SVC_EN,
 } from './services'
 import { CC_ITEMS } from './company-changes'
 
