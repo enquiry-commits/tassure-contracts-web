@@ -675,15 +675,18 @@ function renumberTableRows(tbl: Element): void {
 
     // Update or create text node with new number
     if (hasExistingDigit) {
-      // Replace existing digit
+      // Clear all text runs first, then set the new number in the first one
       for (const t of allT) {
-        if (/^\d+$/.test((t.textContent ?? '').trim())) {
-          t.textContent = String(counter++)
-          break
-        }
+        t.textContent = ''
+      }
+      if (allT.length > 0) {
+        allT[0].textContent = String(counter++)
       }
     } else if (isEmpty && allT.length > 0) {
-      // Fill in empty cell with new number
+      // Fill in empty cell with new number (clear other runs first)
+      for (const t of allT) {
+        t.textContent = ''
+      }
       allT[0].textContent = String(counter++)
     }
   }
