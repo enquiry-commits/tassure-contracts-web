@@ -30,18 +30,21 @@ function getDefinitionSet(languageMode?: string): {
   rowDefs: Record<string, { table: string; label: string; match: string }>
   mapping: Record<string, string[]>
   rowIdToSvc: Record<string, string>
+  templateFileName: string
 } {
   if (languageMode === 'english-only') {
     return {
       rowDefs: ROW_DEFS_EN,
       mapping: DEFAULT_MAPPING_EN,
       rowIdToSvc: ROW_ID_TO_SVC_EN,
+      templateFileName: 'Tassure_Proposal_EN.docx',
     }
   }
   return {
     rowDefs: ROW_DEFS,
     mapping: DEFAULT_MAPPING,
     rowIdToSvc: ROW_ID_TO_SVC,
+    templateFileName: 'Tassure_Proposal_CNEN.docx',
   }
 }
 
@@ -1839,9 +1842,7 @@ function removeChineseContent(body: Element): void {
 // ── main export ───────────────────────────────────────────────────────────────
 
 export async function generateDocx(input: DocInput): Promise<Buffer> {
-  const templateFileName = input.languageMode === 'english-only'
-    ? 'Tassure_Proposal_EN.docx'
-    : 'Tassure_Proposal_CNEN.docx'
+  const { templateFileName } = getDefinitionSet(input.languageMode)
   const templatePath = join(process.cwd(), 'template', templateFileName)
   const templateBuffer = readFileSync(templatePath)
 
