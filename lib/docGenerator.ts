@@ -1816,25 +1816,7 @@ function removeChineseContent(body: Element): void {
     }
   }
   processElement(body)
-
-  // Second pass: Remove completely empty paragraphs (no text content at all)
-  // This reduces blank pages without risking XML corruption
-  function getParaText(p: Element): string {
-    const texts: string[] = []
-    for (const t of allDescendants(p, 't')) {
-      texts.push(t.textContent ?? '')
-    }
-    return texts.join('')
-  }
-
-  const allParas = allDescendants(body, 'p')
-  for (let i = allParas.length - 1; i >= 0; i--) {
-    const para = allParas[i]
-    // Only delete if paragraph is completely empty (zero text content)
-    if (getParaText(para) === '') {
-      para.parentNode?.removeChild(para)
-    }
-  }
+  // DISABLED: Deleting any nodes causes problems - keep XML structure completely intact
 }
 
 // ── main export ───────────────────────────────────────────────────────────────
