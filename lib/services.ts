@@ -292,6 +292,30 @@ export const SERVICES: Service[] = [
     table: 'optional',
     table_desc: ['Monthly payroll processing, payslip issuance, CPF and Skills Development Levy (SDL) submission  每月薪资处理、薪水单出具、公积金（CPF）及技能发展税（SDL）申报', 'SGD 30 per additional headcount beyond 2 persons  超过2人每增加一人加收SGD 30'],
   },
+  {
+    key: 'ND2', cat: 'table2', num: 32,
+    en: 'Local Nominee Director Service - Yearly', cn: '本地挂名董事服务（年费）',
+    fee: 3000, fee_type: 'yearly', fee_str: 'SGD 3,000.00', fee_note: 'Per year / 每年',
+    default: false, content_type: 'bullets',
+    content: [
+      ['Being Named Local director in ACRA; Local Singaporean Director will be provided by us, and no operations will be involved', '在公司注册局上显示本地董事，以符合公司法基本要求'],
+      ['Detailed refer to the Nominee Director Agreement drafted and finalized by our lawyer', '详细参考我们的律师草拟的合约《挂名董事协议》'],
+      ['We also can involve lawyer review and consultations on our agreement where you have special conditions or requirements', '如果您在相互协议的基础上有特殊条件或要求，我们还可以对我们的协议进行律师审查和咨询'],
+    ],
+    table: 'optional',
+    table_desc: ['Being named as local director in ACRA records, provided by us, no operational involvement required  作为本地董事在ACRA登记，由我们提供，无需参与运营', 'Nominee Director Agreement drafted and finalized by our lawyer  律师草拟和完成的挂名董事协议'],
+  },
+  {
+    key: 'ND_DEPOSIT2', cat: 'table2', num: 33,
+    en: 'Additional Deposit', cn: '另付押金',
+    fee: 3000, fee_type: 'onetime', fee_str: 'SGD 3,000.00', fee_note: 'One-time / 一次性',
+    default: false, content_type: 'bullets',
+    content: [
+      ['Additional security deposit required for nominee director services if applicable', '如适用，为挂名董事服务所需的额外保证金'],
+    ],
+    table: 'optional',
+    table_desc: ['Additional security deposit for nominee director services  挂名董事服务所需的额外保证金'],
+  },
 
   // ── TABLE 3 — EP / Work Pass (template rows 1-4) ─────────────────────────────
   {
@@ -437,6 +461,8 @@ export const ROW_DEFS: Record<string, { table: string; label: string; match: str
   OPT_CORPTAX:     { table: 'opt',  label: 'Corporate Taxation',                              match: 'Corporate Taxation' },
   OPT_PERSONALTAX: { table: 'opt',  label: 'Personal Tax Filing + AIS',                      match: 'Personal tax submission' },
   OPT_PAYROLL:     { table: 'opt',  label: 'Payroll Service',                                 match: 'Payroll service' },
+  OPT_ND:          { table: 'opt',  label: 'Local Nominee Director Service - Yearly',          match: 'Local Nominee Director Service' },
+  OPT_ND_DEPOSIT:  { table: 'opt',  label: 'Additional Deposit',                               match: 'Additional Deposit' },
   // ── Table 3 (ep) ── match strings verified against V2026.0528 template
   EP_RENEW:        { table: 'ep',   label: 'EP Renewal Service',                              match: 'EP renewal service' },
   EP_DP:           { table: 'ep',   label: "DP Application",                                  match: 'DP Application' },
@@ -466,6 +492,8 @@ export const DEFAULT_MAPPING: Record<string, string[]> = {
   PERSONALTAX:  ['OPT_PERSONALTAX'],
   AIS:          [],
   PAYROLL:      ['OPT_PAYROLL'],
+  ND2:          ['OPT_ND', 'OPT_ND_DEPOSIT'],
+  ND_DEPOSIT2:  ['OPT_ND_DEPOSIT'],
   PASSRENEWAL:  ['EP_RENEW'],
   DP:           ['EP_DP'],
   DP_RENEW:     ['EP_DP_RENEW'],
@@ -480,11 +508,11 @@ export const DEFAULT_MAPPING: Record<string, string[]> = {
 
 export const ROW_ID_TO_SVC: Record<string, string> = {
   MAIN_INCORP: 'INCORP', MAIN_SEC: 'SECRETARIAL', MAIN_ADDR: 'ADDRESS',
-  MAIN_ND: 'ND', MAIN_EP: 'EP', MAIN_BANK: 'BANK',
+  MAIN_ND: 'ND', MAIN_ND_DEPOSIT: 'ND', MAIN_EP: 'EP', MAIN_BANK: 'BANK',
   MAIN_CORP_CONSULT: 'CORP_CONSULT',
   OPT_ACCOUNTS: 'ACCOUNTS', OPT_SECRETARIAL: 'SECRETARIAL2', OPT_ADDRESS: 'ADDRESS2',
   OPT_AR_GOV: 'AR', OPT_UFS: 'UNAUDITEDFS', OPT_CORPTAX: 'COMPANYTAX',
-  OPT_PERSONALTAX: 'PERSONALTAX', OPT_PAYROLL: 'PAYROLL',
+  OPT_PERSONALTAX: 'PERSONALTAX', OPT_PAYROLL: 'PAYROLL', OPT_ND: 'ND2', OPT_ND_DEPOSIT: 'ND_DEPOSIT2',
   EP_RENEW: 'PASSRENEWAL', EP_DP: 'DP', EP_DP_RENEW: 'DP_RENEW', EP_LOC: 'LOC', EP_SDL: 'EP_SDL',
   MAIN_CERT: 'CERT', MAIN_DP_MAIN: 'DP_MAIN', MAIN_LOC_MAIN: 'LOC_MAIN',
   MAIN_GOODWILL: 'GOODWILL_DISC',
