@@ -1870,10 +1870,9 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   normalizeGeneralSpacing(body, xmlDoc)
 
   // Remove all Chinese content if english-only mode
-  // TEMPORARILY DISABLED: This function is causing blank pages
-  // if (input.languageMode === 'english-only') {
-  //   removeChineseContent(body)
-  // }
+  if (input.languageMode === 'english-only') {
+    removeChineseContent(body)
+  }
 
   const serializer = new XMLSerializer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
