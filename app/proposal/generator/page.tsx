@@ -843,8 +843,12 @@ function ServiceRow({
 
         {/* Name */}
         <div className="flex-1 py-2.5 pr-3">
-          <div className={`text-sm font-bold ${isDiscount ? 'text-[#8B1A2A]' : 'text-[#1A1A2E]'}`}>{svc.en}</div>
-          <div className={`text-xs mt-0.5 ${isDiscount ? 'text-[#C06070]' : 'text-[#6B7FA0]'}`}>{svc.cn}</div>
+          <div className={`text-sm font-bold ${isDiscount ? 'text-[#8B1A2A]' : 'text-[#1A1A2E]'}`}>
+            {svc.key === 'ND_DEPOSIT2' ? '↳ ' : ''}{svc.en}
+          </div>
+          <div className={`text-xs mt-0.5 ${isDiscount ? 'text-[#C06070]' : 'text-[#6B7FA0]'}`}>
+            {svc.key === 'ND_DEPOSIT2' ? '↳ ' : ''}{svc.cn}
+          </div>
         </div>
 
         {/* Fee badge */}
