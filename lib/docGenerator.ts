@@ -1677,7 +1677,7 @@ function addAppendixSpacing(body: Element, xmlDoc: any): void {
 // ── normalize spacing before "General" section ───────────────────────────────
 // The template has 5 blank paragraphs before "General"; ensure exactly 2.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function normalizeGeneralSpacing(body: Element, xmlDoc: any): void {
+function normalizeGeneralSpacing(body: Element, xmlDoc: any, languageMode?: string): void {
   const bodyKids = Array.from({ length: body.childNodes.length }, (_, i) => body.childNodes[i])
     .filter((n): n is Element => (n as Element).nodeType === 1) as Element[]
 
@@ -1700,14 +1700,17 @@ function normalizeGeneralSpacing(body: Element, xmlDoc: any): void {
     }
   }
 
-  // Insert page break before "General"
-  const pageBreakP = xmlDoc.createElement('w:p')
-  const pageBreakR = xmlDoc.createElement('w:r')
-  const pageBreakBr = xmlDoc.createElement('w:br')
-  pageBreakBr.setAttribute('w:type', 'page')
-  pageBreakR.appendChild(pageBreakBr)
-  pageBreakP.appendChild(pageBreakR)
-  body.insertBefore(pageBreakP, generalEl)
+  // Insert page break before "General" ONLY for bilingual mode
+  // English-only mode: skip page break to avoid blank pages
+  if (languageMode !== 'english-only') {
+    const pageBreakP = xmlDoc.createElement('w:p')
+    const pageBreakR = xmlDoc.createElement('w:r')
+    const pageBreakBr = xmlDoc.createElement('w:br')
+    pageBreakBr.setAttribute('w:type', 'page')
+    pageBreakR.appendChild(pageBreakBr)
+    pageBreakP.appendChild(pageBreakR)
+    body.insertBefore(pageBreakP, generalEl)
+  }
 }
 
 // ── table column-width sync helpers ──────────────────────────────────────────
@@ -1867,7 +1870,7 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   }
 
   addAppendixSpacing(body, xmlDoc)
-  normalizeGeneralSpacing(body, xmlDoc)
+  normalizeGeneralSpacing(body, xmlDoc, input.languageMode)
 
   // Remove all Chinese content if english-only mode
   if (input.languageMode === 'english-only') {
