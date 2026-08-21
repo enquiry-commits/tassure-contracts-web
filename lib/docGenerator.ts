@@ -802,14 +802,13 @@ function processMainTable(
   }
 
   // Filter rows based on user selection (applies to both bilingual and english-only modes)
-  // DISABLED row deletion to test if it causes blank pages
-  // const rowsToRemove: Element[] = []
-  // for (const row of directChildren(tbl, 'tr')) {
-  //   const cells = directChildren(row, 'tc')
-  //   if (cells.length === 0) continue
-  //   if (!rowLinked(cells, 'main', sel, mapping, languageMode)) rowsToRemove.push(row)
-  // }
-  // for (const r of rowsToRemove) r.parentNode?.removeChild(r)
+  const rowsToRemove: Element[] = []
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length === 0) continue
+    if (!rowLinked(cells, 'main', sel, mapping, languageMode)) rowsToRemove.push(row)
+  }
+  for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
   const FOC_MERGE_RIDS = new Set(['MAIN_POST_EP', 'MAIN_CORPPASS', 'MAIN_PDPA', 'MAIN_CORP_CONSULT'])
   const FOC_RID_TO_KEY: Record<string, string> = {
