@@ -125,7 +125,7 @@ function fmtNum(n: number): string {
 // Split text at first Chinese character: ["English part", "中文部分"]
 function splitAtChinese(text: string): [string, string] {
   // Match Chinese characters AND Chinese punctuation/symbols
-  const m = text.search(/[一-鿿㐀-䶿—-’　-〿︐-︙︰-﹏（）【】《》「」『』、；，。！？：…]/u)
+  const m = text.search(/[一-鿿㐀-䶿（）【】《》「」『』、；，。！？：…]/u)
   return m === -1 ? [text, ''] : [text.slice(0, m), text.slice(m)]
 }
 
