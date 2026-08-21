@@ -1788,30 +1788,26 @@ function applyColWidths(tbl: Element, colWidths: Array<{ w: string; type: string
 
 // ── remove all Chinese content for english-only mode ─────────────────────────
 function removeChineseContent(body: Element): void {
-  // First pass: remove Chinese from all text nodes and clean up residual symbols
   function processElement(el: Element): void {
     for (let i = el.childNodes.length - 1; i >= 0; i--) {
       const node = el.childNodes[i]
       if (node.nodeType === 3) {
         let text = node.textContent ?? ''
-        const [enPart] = splitAtChinese(text)
+        const [enPart, cnPart] = splitAtChinese(text)
 
-        // Clean up residual Chinese punctuation and symbols
-        text = enPart
-          .replace(/[　-〿]/g, '') // Remove CJK symbols and punctuation
-          .replace(/[＀-￯]/g, '') // Remove fullwidth forms
-          .replace(/[一-鿿]/g, '') // Remove CJK unified ideographs
-          .replace(/[㐀-䶿]/g, '') // Remove CJK extension A
-          .replace(/[/\\]/g, '') // Remove slashes (keep spaces and all brackets)
-          .trim()
+        // Only clean up if we actually found Chinese - preserve spacing if it's pure English
+        if (cnPart) {
+          text = enPart
+            .replace(/[　-〿]/g, '')
+            .replace(/[＀-￯]/g, '')
+            .replace(/[一-鿿]/g, '')
+            .replace(/[㐀-䶿]/g, '')
+            .replace(/[/\\]/g, '')
+            .trim()
+          text = text.replace(/(\d+|\$)\s*[）\)]*\s*$/, '$1')
+          text = text.replace(/^[\s()（）\[\]【】\{\}｛｝]*$/, '')
+        }
 
-        // Remove lines that end with Chinese punctuation followed by English (e.g., "$315）")
-        text = text.replace(/(\d+|\$)\s*[）\)]*\s*$/, '$1') // Clean "$315）" → "$315"
-
-        // Remove text that's only brackets/punctuation (residual from removed Chinese)
-        text = text.replace(/^[\s()（）\[\]【】\{\}｛｝]*$/, '')
-
-        // Only update, never delete nodes - keep XML structure intact
         node.textContent = text
       } else if (node.nodeType === 1) {
         processElement(node as Element)
@@ -1819,7 +1815,6 @@ function removeChineseContent(body: Element): void {
     }
   }
   processElement(body)
-  // DISABLED: Deleting any nodes causes problems - keep XML structure completely intact
 }
 
 // ── main export ───────────────────────────────────────────────────────────────
