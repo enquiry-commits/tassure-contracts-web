@@ -298,6 +298,16 @@ function GeneratePageContent() {
       if (dep >= 0) feeOverrides['ND_DEPOSIT'] = dep
     }
 
+    // Ensure ND_DEPOSIT2 consistency: if selected, ND2 must also be selected
+    const adjustedSelected = new Set(selected)
+    if (selected.has('ND_DEPOSIT2') && !adjustedSelected.has('ND2')) {
+      adjustedSelected.add('ND2')
+    }
+    // If ND2 is NOT selected, remove ND_DEPOSIT2 from feeOverrides
+    if (!adjustedSelected.has('ND2')) {
+      delete feeOverrides['ND_DEPOSIT2']
+    }
+
     const ccOverrides: Record<string, number> = {}
     for (const item of CC_ITEMS) {
       if (item.is_foc) {
@@ -329,7 +339,7 @@ function GeneratePageContent() {
           salutationCn: salCn,
           pic: selectedPic,
           mode,
-          selected: [...selected],
+          selected: [...adjustedSelected],
           feeOverrides,
           ccOverrides,
           sectionMapping,
