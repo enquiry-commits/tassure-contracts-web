@@ -53,7 +53,7 @@ function initFeeValues(): Record<string, string> {
     }
   }
   m['ND_DEPOSIT'] = '3,000.00'
-  m['ND_DEPOSIT2'] = '3,000.00'
+  m['ND_DEPOSIT2'] = '0.00'
   return m
 }
 
