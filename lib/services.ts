@@ -492,8 +492,6 @@ export const ROW_DEFS_EN: Record<string, { table: string; label: string; match: 
   // ── Table 2 (opt) ──
   OPT_ACCOUNTS:    { table: 'opt',  label: 'Accounts Preparation - Yearly',                   match: 'Accounts Preparation - Yearly' },
   OPT_SECRETARIAL: { table: 'opt',  label: 'Secretarial Services - Yearly',                   match: 'Secretarial Services - Yearly' },
-  OPT_ND:          { table: 'opt',  label: 'Local Nominee Director Service - Yearly',         match: 'Local Nominee Director Service - Yearly' },
-  OPT_ND_DEPOSIT:  { table: 'opt',  label: 'Additional Deposit',                              match: 'Additional Deposit' },
   OPT_ADDRESS:     { table: 'opt',  label: 'Registered mailing Address - Yearly',             match: 'Registered mailing Address - Yearly' },
   OPT_AR_GOV:      { table: 'opt',  label: 'Annual Return Services',                          match: 'Annual Return Services' },
   OPT_UFS:         { table: 'opt',  label: 'Unaudit Report',                                  match: 'Unaudit Report' },
