@@ -1,0 +1,161 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: #f8f9fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+}
+
+.header {
+  background: white;
+  padding: 20px 30px;
+  border-bottom: 1px solid #ddd;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.header h1 {
+  margin: 0 0 5px 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #333;
+}
+
+.header p {
+  margin: 0;
+  font-size: 13px;
+  color: #666;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 15px 30px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  flex-wrap: wrap;
+}
+
+.btn,
+.uploadBtn {
+  padding: 8px 16px;
+  background: #f0f0f0;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:hover:not(:disabled),
+.uploadBtn:hover {
+  background: #e0e0e0;
+  border-color: #b0b0b0;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: #2196f3;
+  color: white;
+  border-color: #1976d2;
+}
+
+.btn.primary:hover {
+  background: #1976d2;
+  border-color: #1565c0;
+}
+
+.uploadBtn {
+  cursor: pointer;
+}
+
+.fileName {
+  font-size: 13px;
+  color: #666;
+  margin-left: 10px;
+  padding: 4px 8px;
+  background: #f5f5f5;
+  border-radius: 3px;
+}
+
+.error {
+  padding: 12px 30px;
+  background: #ffebee;
+  color: #c62828;
+  border-left: 4px solid #c62828;
+  font-size: 13px;
+}
+
+.content {
+  display: flex;
+  flex: 1;
+  gap: 0;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: 200px;
+  background: white;
+  border-right: 1px solid #ddd;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.sidebar h3 {
+  margin: 0 0 10px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+}
+
+.tableList {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.tableItem {
+  padding: 10px 12px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  text-align: left;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tableItem:hover {
+  background: #efefef;
+  border-color: #d0d0d0;
+}
+
+.tableItem.active {
+  background: #2196f3;
+  color: white;
+  border-color: #1976d2;
+}
+
+.rowCount {
+  font-size: 11px;
+  opacity: 0.8;
+  margin-left: 5px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  background: white;
+}
