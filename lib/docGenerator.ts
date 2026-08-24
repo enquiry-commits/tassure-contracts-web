@@ -1213,10 +1213,10 @@ function processOptTable(
             const prevTcPr = directChildren(prevCells[0], 'tcPr')[0]
             if (prevTcPr) {
               // Remove vMerge
-              const vMerges = directChildren(prevTcPr, 'w:vMerge')
+              const vMerges = directChildren(prevTcPr, 'vMerge')
               for (const vm of vMerges) vm.parentNode?.removeChild(vm)
               // Remove vAlign (vertical alignment)
-              const vAligns = directChildren(prevTcPr, 'w:vAlign')
+              const vAligns = directChildren(prevTcPr, 'vAlign')
               for (const va of vAligns) va.parentNode?.removeChild(va)
             }
           }
