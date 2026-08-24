@@ -1244,29 +1244,25 @@ function processOptTable(
 
             // Remove extra empty paragraphs from the cell
             // Keep only the paragraph that contains actual content (the row number)
-            const paragraphs = directChildren(firstCell, 'p')
-            if (paragraphs.length > 1) {
+            let allParas = directChildren(firstCell, 'p')
+            if (allParas.length > 1) {
               // Find which paragraph has actual text content
-              let contentParagraphIdx = -1
-              for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
-                const texts = paragraphs[pIdx].getElementsByTagName('w:t')
+              let contentPara: Element | undefined = undefined
+              for (const para of allParas) {
+                const texts = para.getElementsByTagName('w:t')
                 if (texts.length > 0) {
-                  contentParagraphIdx = pIdx
+                  contentPara = para
                   break
                 }
               }
 
-              // Delete empty paragraphs before the content paragraph
-              for (let pIdx = contentParagraphIdx - 1; pIdx >= 0; pIdx--) {
-                firstCell.removeChild(paragraphs[pIdx])
-              }
-
-              // Delete empty paragraphs after the content paragraph
-              const updatedParagraphs = directChildren(firstCell, 'p')
-              for (let pIdx = updatedParagraphs.length - 1; pIdx > 0; pIdx--) {
-                const texts = updatedParagraphs[pIdx].getElementsByTagName('w:t')
-                if (texts.length === 0) {
-                  firstCell.removeChild(updatedParagraphs[pIdx])
+              if (contentPara) {
+                // Delete all empty paragraphs except the content one
+                allParas = directChildren(firstCell, 'p')
+                for (const para of allParas) {
+                  if (para !== contentPara) {
+                    firstCell.removeChild(para)
+                  }
                 }
               }
             }
