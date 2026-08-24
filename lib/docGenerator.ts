@@ -1192,7 +1192,9 @@ function processOptTable(
     const cells = directChildren(r, 'tc')
     if (cells.length > 0) {
       const txt = cells.map(c => cellText(c)).join(' ')
-      if (txt.includes('Additional Deposit')) {
+      // Check for both English and Chinese text
+      const isDepositRow = txt.includes('Additional Deposit') || txt.includes('另付押金')
+      if (isDepositRow) {
         const allRows = directChildren(tbl, 'tr')
         const rowIdx = allRows.indexOf(r)
         if (rowIdx > 0) {
