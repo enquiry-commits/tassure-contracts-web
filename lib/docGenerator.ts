@@ -1362,16 +1362,45 @@ function processOptTable(
         // Special handling for ND_DEPOSIT2: always update if we have the value
         if (svcKey === 'ND_DEPOSIT2' && feeOv['ND_DEPOSIT2'] !== undefined) {
           const feeCell = cells[cells.length - 1]
-          // Clear all content and rebuild
-          for (const child of Array.from(feeCell.childNodes)) {
-            feeCell.removeChild(child)
+
+          // Copy tcPr from the first data row in the table (for width/margin consistency)
+          const allRows = directChildren(tbl, 'tr')
+          let referenceFeeCell: Element | null = null
+          if (allRows.length > 1) {
+            const refRow = allRows[1] as Element
+            const refCells = directChildren(refRow, 'tc')
+            if (refCells.length > 0) {
+              referenceFeeCell = refCells[refCells.length - 1]
+            }
           }
-          // Create new paragraph with the fee
+          if (referenceFeeCell) {
+            const refTcPr = directChildren(referenceFeeCell, 'tcPr')[0]
+            const existingTcPr = directChildren(feeCell, 'tcPr')[0]
+            if (refTcPr && !existingTcPr) {
+              feeCell.insertBefore(refTcPr.cloneNode(true), feeCell.firstChild)
+            }
+          }
+
+          // Clear all paragraphs
+          for (const p of directChildren(feeCell, 'p')) {
+            feeCell.removeChild(p)
+          }
+
+          // Create new paragraph with proper formatting
           const p = xmlDoc.createElement('w:p')
-          const r = xmlDoc.createElement('w:r')
-          const t = xmlDoc.createElement('w:t')
-          t.textContent = fmtNum(feeOv['ND_DEPOSIT2'])
-          r.appendChild(t)
+          const pPr = xmlDoc.createElement('w:pPr')
+          const pRPr = xmlDoc.createElement('w:rPr')
+          const pSz = xmlDoc.createElement('w:sz')
+          pSz.setAttribute('w:val', '20')
+          const pSzCs = xmlDoc.createElement('w:szCs')
+          pSzCs.setAttribute('w:val', '20')
+          pRPr.appendChild(pSz)
+          pRPr.appendChild(pSzCs)
+          pPr.appendChild(pRPr)
+          p.appendChild(pPr)
+
+          // Add formatted run with fee value
+          const r = makeCalibriRun(fmtNum(feeOv['ND_DEPOSIT2']), '20', xmlDoc)
           p.appendChild(r)
           feeCell.appendChild(p)
         }
