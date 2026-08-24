@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tassure Template Editor</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f8f9fa; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { font-size: 24px; margin-bottom: 10px; }
+        .status { padding: 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 20px; }
+        .status.error { background: #f8d7da; border-color: #f5c6cb; color: #721c24; }
+        .status.success { background: #d4edda; border-color: #c3e6cb; color: #155724; }
+        .loading { text-align: center; padding: 40px; }
+        .spinner { border: 4px solid #f3f3f3; border-top: 4px solid #2196f3; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .buttons { display: flex; gap: 10px; margin-top: 20px; }
+        button { padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #1976d2; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .preview { background: white; padding: 20px; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        td { border: 1px solid #999; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📄 Tassure Template Editor (简化版)</h1>
+            <p>此为临时版本，用于加载和查看 DOCX 模板结构</p>
+        </div>
+
+        <div id="status" class="status" style="display:none;"></div>
+
+        <div class="buttons">
+            <button onclick="loadTemplate()">加载默认模板</button>
+            <label style="display: inline-block;">
+                <button as="label" type="button">上传 DOCX 文件</button>
+                <input type="file" id="fileInput" accept=".docx" onchange="handleFileUpload(event)" style="display:none;">
+            </label>
+        </div>
+
+        <div id="content" style="display:none;">
+            <div class="preview">
+                <h3>TABLE 2 Preview</h3>
+                <table id="previewTable">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadTemplate() {
+            showStatus('加载中...', '');
+            try {
+                const response = await fetch('/api/template-editor/load-template', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                if (!data.success || !data.tables) {
+                    throw new Error('Invalid response format');
+                }
+
+                displayTable(data.tables[1] || data.tables[0]);
+                showStatus('✅ 模板加载成功', 'success');
+            } catch (err) {
+                showStatus(`❌ 加载失败: ${err.message}`, 'error');
+                console.error(err);
+            }
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showStatus('解析文件中...', '');
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/api/template-editor/parse-docx', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                displayTable(data.tables[1] || data.tables[0]);
+                showStatus('✅ 文件解析成功', 'success');
+            } catch (err) {
+                showStatus(`❌ 解析失败: ${err.message}`, 'error');
+            }
+        }
+
+        function displayTable(table) {
+            if (!table || !table.rows) return;
+
+            const tbody = document.querySelector('#previewTable tbody');
+            tbody.innerHTML = '';
+
+            table.rows.slice(0, 6).forEach(row => {
+                const tr = document.createElement('tr');
+                tr.style.height = row.height !== '(auto)' ? `${parseInt(row.height) / 20}pt` : 'auto';
+
+                row.cells.forEach(cell => {
+                    const td = document.createElement('td');
+                    td.style.verticalAlign = cell.vAlign !== 'none' ? cell.vAlign : 'top';
+                    td.innerHTML = `
+                        <div style="font-size:12px;">
+                            <strong>${cell.text || '(empty)'}</strong>
+                            <br><small style="color:#666;">vMerge: ${cell.vMerge}, vAlign: ${cell.vAlign}, height: ${row.height}</small>
+                        </div>
+                    `;
+                    tr.appendChild(td);
+                });
+
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('content').style.display = 'block';
+        }
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+            statusDiv.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
