@@ -303,8 +303,11 @@ function GeneratePageContent() {
     if (selected.has('ND_DEPOSIT2') && !adjustedSelected.has('ND2')) {
       adjustedSelected.add('ND2')
     }
-    // If ND2 is NOT selected, remove ND_DEPOSIT2 from feeOverrides
-    if (!adjustedSelected.has('ND2')) {
+    // Handle ND_DEPOSIT2 fee: only include if ND2 is selected
+    if (adjustedSelected.has('ND2') && selected.has('ND_DEPOSIT2')) {
+      const ndDep2 = parseFee(feeValues['ND_DEPOSIT2'] ?? '0')
+      if (ndDep2 >= 0) feeOverrides['ND_DEPOSIT2'] = ndDep2
+    } else {
       delete feeOverrides['ND_DEPOSIT2']
     }
 
