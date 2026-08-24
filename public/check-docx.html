@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOCX 属性检查工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        h1 { font-size: 20px; margin-bottom: 10px; }
+        .upload { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="file"] { padding: 8px; }
+        button { padding: 10px 20px; background: #2196f3; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #1976d2; }
+        .results { background: white; padding: 20px; border-radius: 8px; }
+        .row-info { margin-bottom: 20px; padding: 15px; background: #f9f9f9; border-left: 4px solid #2196f3; }
+        .row-info h3 { margin-bottom: 10px; font-size: 14px; }
+        .property { display: grid; grid-template-columns: 150px 1fr; gap: 10px; margin: 5px 0; font-size: 13px; }
+        .label { font-weight: bold; color: #333; }
+        .value { color: #666; font-family: monospace; }
+        .warning { color: #f44336; font-weight: bold; }
+        .success { color: #4caf50; font-weight: bold; }
+        .error { color: #f44336; padding: 10px; background: #ffebee; border-radius: 4px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 DOCX 表格属性检查工具</h1>
+            <p>用来验证生成的 DOCX 文件中的行高、vMerge、vAlign 属性是否正确</p>
+        </div>
+
+        <div class="upload">
+            <input type="file" id="fileInput" accept=".docx" />
+            <button onclick="checkFile()">检查文件</button>
+        </div>
+
+        <div id="results"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        async function checkFile() {
+            const file = document.getElementById('fileInput').files[0];
+            if (!file) {
+                alert('请选择 DOCX 文件');
+                return;
+            }
+
+            try {
+                const buffer = await file.arrayBuffer();
+                const zip = new JSZip();
+                const docx = await zip.loadAsync(buffer);
+                const xml = await docx.file('word/document.xml').async('string');
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(xml, 'application/xml');
+
+                const tables = doc.getElementsByTagName('w:tbl');
+                let html = '';
+
+                if (tables.length < 2) {
+                    document.getElementById('results').innerHTML = '<div class="error">错误：找不到 TABLE 2</div>';
+                    return;
+                }
+
+                const table2 = tables[1];
+                const rows = table2.getElementsByTagName('w:tr');
+
+                html += '<div class="results">';
+                html += '<h2>TABLE 2 检查结果</h2>';
+                html += `<p style="margin-bottom: 15px; color: #666;">总共 ${rows.length} 行</p>`;
+
+                // 重点检查行 3（ND2）
+                const row3 = rows[3];
+                if (row3) {
+                    html += '<div class="row-info" style="border-left-color: #ff9800;">';
+                    html += '<h3>行 3（ND2 - Local Nominee Director Service）- 关键行</h3>';
+                    html += getRowProperties(row3, 3);
+                    html += '</div>';
+                }
+
+                // 检查行 4（ND_DEPOSIT2）
+                const row4 = rows[4];
+                if (row4) {
+                    const cells = row4.getElementsByTagName('w:tc');
+                    const text = getRowText(row4);
+                    const shouldExist = text.includes('Additional Deposit') ? '❌ 不应该存在' : '✓ 正确';
+
+                    html += '<div class="row-info">';
+                    html += '<h3>行 4（ND_DEPOSIT2 - Additional Deposit）</h3>';
+                    html += `<div class="property"><span class="label">状态：</span><span class="value ${text.includes('Additional Deposit') ? 'warning' : 'success'}">${shouldExist}</span></div>`;
+                    if (text.includes('Additional Deposit')) {
+                        html += `<div class="property"><span class="label">说明：</span><span class="value warning">这一行不应该在生成的文档中出现（因为没有选中 ND_DEPOSIT2）</span></div>`;
+                    }
+                    html += '</div>';
+                }
+
+                // 其他行的摘要
+                html += '<div class="row-info">';
+                html += '<h3>所有行的行高摘要</h3>';
+                for (let i = 0; i < Math.min(rows.length, 8); i++) {
+                    const height = getRowHeight(rows[i]);
+                    const text = getRowText(rows[i]).substring(0, 40);
+                    const heightPt = height !== '(auto)' ? `${parseInt(height) / 20}pt` : '(auto)';
+                    html += `<div class="property"><span class="label">行 ${i}:</span><span class="value">${height} (${heightPt}) - ${text}</span></div>`;
+                }
+                html += '</div>';
+
+                html += '</div>';
+                document.getElementById('results').innerHTML = html;
+
+            } catch (err) {
+                document.getElementById('results').innerHTML = `<div class="error">错误: ${err.message}</div>`;
+            }
+        }
+
+        function getRowHeight(row) {
+            const trPr = row.getElementsByTagName('w:trPr')[0];
+            if (trPr) {
+                const trHeight = trPr.getElementsByTagName('w:trHeight')[0];
+                if (trHeight) {
+                    return trHeight.getAttribute('w:val');
+                }
+            }
+            return '(auto)';
+        }
+
+        function getRowText(row) {
+            const cells = row.getElementsByTagName('w:tc');
+            let text = '';
+            for (let i = 0; i < cells.length; i++) {
+                const ts = cells[i].getElementsByTagName('w:t');
+                for (let j = 0; j < ts.length; j++) {
+                    text += ts[j].textContent;
+                }
+                text += ' ';
+            }
+            return text;
+        }
+
+        function getRowProperties(row, rowNum) {
+            const height = getRowHeight(row);
+            const heightPt = height !== '(auto)' ? `${parseInt(height) / 20}pt` : '(auto)';
+            const cells = row.getElementsByTagName('w:tc');
+            const firstCell = cells[0];
+
+            let vMerge = '无';
+            let vAlign = '无';
+
+            if (firstCell) {
+                const tcPr = firstCell.getElementsByTagName('w:tcPr')[0];
+                if (tcPr) {
+                    const vm = tcPr.getElementsByTagName('w:vMerge')[0];
+                    if (vm) {
+                        vMerge = vm.getAttribute('w:val') || 'continue';
+                    }
+
+                    const va = tcPr.getElementsByTagName('w:vAlign')[0];
+                    if (va) {
+                        vAlign = va.getAttribute('w:val');
+                    }
+                }
+            }
+
+            let html = '';
+
+            // 检查行高是否正确（应该是 560）
+            const heightCorrect = height === '560';
+            const vMergeCorrect = vMerge === '无';
+            const vAlignCorrect = vAlign === '无';
+
+            html += `<div class="property"><span class="label">行高:</span><span class="value ${heightCorrect ? 'success' : 'warning'}">${height} (${heightPt}) ${heightCorrect ? '✓ 正确' : '❌ 应该是 560'}</span></div>`;
+            html += `<div class="property"><span class="label">vMerge:</span><span class="value ${vMergeCorrect ? 'success' : 'warning'}">${vMerge} ${vMergeCorrect ? '✓ 正确' : '❌ 应该移除'}</span></div>`;
+            html += `<div class="property"><span class="label">vAlign:</span><span class="value ${vAlignCorrect ? 'success' : 'warning'}">${vAlign} ${vAlignCorrect ? '✓ 正确' : '❌ 应该移除'}</span></div>`;
+
+            if (heightCorrect && vMergeCorrect && vAlignCorrect) {
+                html += '<div class="property" style="margin-top: 10px;"><span class="success" style="font-size: 14px;">✓ 所有属性正确！序号 3 应该显示在正常位置，没有多余空行</span></div>';
+            } else {
+                html += '<div class="property" style="margin-top: 10px;"><span class="warning" style="font-size: 14px;">❌ 存在问题，序号 3 可能还是显示不正常</span></div>';
+            }
+
+            return html;
+        }
+    </script>
+</body>
+</html>
