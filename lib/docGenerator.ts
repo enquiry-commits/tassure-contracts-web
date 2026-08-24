@@ -1356,8 +1356,12 @@ function processOptTable(
       if (svcKey) {
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
-        } else if (feeOv[svcKey] !== undefined) {
-          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc, languageMode)
+        } else {
+          // For ND_DEPOSIT2, use the fee value from feeOv, or default to 0
+          const feeValue = svcKey === 'ND_DEPOSIT2' ? (feeOv[svcKey] ?? 0) : feeOv[svcKey]
+          if (feeValue !== undefined) {
+            updateFeeCell(cells[cells.length - 1], feeValue, xmlDoc, languageMode)
+          }
         }
       }
     }
