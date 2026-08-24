@@ -1196,10 +1196,11 @@ function processOptTable(
     const cells = directChildren(r, 'tc')
     if (cells.length > 0) {
       const txt = cells.map(c => cellText(c)).join(' ')
-      // Check for both English and Chinese text
+      // Check for both English and Chinese text of ND_DEPOSIT2
       const isDepositRow = txt.includes('Additional Deposit') || txt.includes('另付押金')
+
       if (isDepositRow) {
-        const allRows = directChildren(tbl, 'tr')
+        const allRows = Array.from(tbl.getElementsByTagName('w:tr'))
         const rowIdx = allRows.indexOf(r)
         if (rowIdx > 0) {
           const prevRow = allRows[rowIdx - 1]
@@ -1243,26 +1244,31 @@ function processOptTable(
             }
 
             // Remove extra empty paragraphs from the cell
-            // Keep only the paragraph that contains actual content (the row number)
-            let allParas = directChildren(firstCell, 'p')
-            if (allParas.length > 1) {
-              // Find which paragraph has actual text content
-              let contentPara: Element | undefined = undefined
-              for (const para of allParas) {
-                const texts = para.getElementsByTagName('w:t')
-                if (texts.length > 0) {
-                  contentPara = para
-                  break
-                }
-              }
+            // Delete ALL paragraphs first, then find and keep only the content paragraph
+            const paragraphs = directChildren(firstCell, 'p')
+            let contentPara: Element | undefined = undefined
+            let contentText = ''
 
-              if (contentPara) {
-                // Delete all empty paragraphs except the content one
-                allParas = directChildren(firstCell, 'p')
-                for (const para of allParas) {
-                  if (para !== contentPara) {
-                    firstCell.removeChild(para)
-                  }
+            // Find paragraph with actual number content
+            for (const para of paragraphs) {
+              const texts = para.getElementsByTagName('w:t')
+              let paraText = ''
+              for (let t = 0; t < texts.length; t++) {
+                paraText += texts[t].textContent
+              }
+              if (paraText.trim() && /^\d+$/.test(paraText.trim())) {
+                contentPara = para
+                contentText = paraText
+                break
+              }
+            }
+
+            // If found, remove ALL other paragraphs
+            if (contentPara) {
+              const allParas = directChildren(firstCell, 'p')
+              for (const para of allParas) {
+                if (para !== contentPara) {
+                  firstCell.removeChild(para)
                 }
               }
             }
