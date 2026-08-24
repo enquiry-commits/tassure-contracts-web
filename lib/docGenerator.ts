@@ -1186,6 +1186,31 @@ function processOptTable(
       if (!txt.includes('Service Scope') && !txt.includes('Total')) dataRowsKept++
     }
   }
+
+  // If removing ND_DEPOSIT2, clear vMerge from ND2's number cell to fix alignment
+  for (const r of rowsToRemove) {
+    const cells = directChildren(r, 'tc')
+    if (cells.length > 0) {
+      const txt = cells.map(c => cellText(c)).join(' ')
+      if (txt.includes('Additional Deposit')) {
+        // Find previous row and remove vMerge from its first cell
+        const allRows = directChildren(tbl, 'tr')
+        const rowIdx = allRows.indexOf(r)
+        if (rowIdx > 0) {
+          const prevRow = allRows[rowIdx - 1]
+          const prevCells = directChildren(prevRow, 'tc')
+          if (prevCells.length > 0) {
+            const prevTcPr = directChildren(prevCells[0], 'tcPr')[0]
+            if (prevTcPr) {
+              const vMerges = directChildren(prevTcPr, 'w:vMerge')
+              for (const vm of vMerges) vm.parentNode?.removeChild(vm)
+            }
+          }
+        }
+      }
+    }
+  }
+
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
 
   const extraSelected = ['XBRL', 'AUDIT', 'AIS'].some(k => sel.has(k))
