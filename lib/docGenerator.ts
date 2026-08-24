@@ -1176,22 +1176,12 @@ function processOptTable(
 
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
-  if (languageMode !== 'english-only') {
-    for (const row of directChildren(tbl, 'tr')) {
-      const cells = directChildren(row, 'tc')
-      if (cells.length === 0) continue
-      if (!rowLinked(cells, 'opt', sel, mapping, languageMode)) {
-        rowsToRemove.push(row)
-      } else {
-        const txt = cells.map(c => cellText(c)).join(' ')
-        if (!txt.includes('Service Scope') && !txt.includes('Total')) dataRowsKept++
-      }
-    }
-  } else {
-    // English-only: count all non-header rows
-    for (const row of directChildren(tbl, 'tr')) {
-      const cells = directChildren(row, 'tc')
-      if (cells.length === 0) continue
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length === 0) continue
+    if (!rowLinked(cells, 'opt', sel, mapping, languageMode)) {
+      rowsToRemove.push(row)
+    } else {
       const txt = cells.map(c => cellText(c)).join(' ')
       if (!txt.includes('Service Scope') && !txt.includes('Total')) dataRowsKept++
     }
