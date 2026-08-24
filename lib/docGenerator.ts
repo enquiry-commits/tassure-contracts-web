@@ -1145,6 +1145,7 @@ function processOptTable(
   const OPT_FEES: Record<string, number> = {
     ACCOUNTS: 1500, SECRETARIAL2: 700, ADDRESS2: 360, AR: 60,
     UNAUDITEDFS: 700, COMPANYTAX: 700, PERSONALTAX: 300, PAYROLL: 600,
+    ND2: 3000, ND_DEPOSIT2: 0,
   }
 
   // IMPORTANT: Capture existing row numbers and fees BEFORE any modifications (BEFORE removal)
