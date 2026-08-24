@@ -1187,13 +1187,13 @@ function processOptTable(
     }
   }
 
-  // If removing ND_DEPOSIT2, clear vMerge from ND2's number cell to fix alignment
+  // If removing ND_DEPOSIT2, clear vMerge and vAlign from ND2's number cell
   for (const r of rowsToRemove) {
     const cells = directChildren(r, 'tc')
     if (cells.length > 0) {
       const txt = cells.map(c => cellText(c)).join(' ')
       if (txt.includes('Additional Deposit')) {
-        // Find previous row and remove vMerge from its first cell
+        // Find previous row and fix its first cell
         const allRows = directChildren(tbl, 'tr')
         const rowIdx = allRows.indexOf(r)
         if (rowIdx > 0) {
@@ -1202,8 +1202,12 @@ function processOptTable(
           if (prevCells.length > 0) {
             const prevTcPr = directChildren(prevCells[0], 'tcPr')[0]
             if (prevTcPr) {
+              // Remove vMerge
               const vMerges = directChildren(prevTcPr, 'w:vMerge')
               for (const vm of vMerges) vm.parentNode?.removeChild(vm)
+              // Remove vAlign (vertical alignment) to restore default top alignment
+              const vAligns = directChildren(prevTcPr, 'w:vAlign')
+              for (const va of vAligns) va.parentNode?.removeChild(va)
             }
           }
         }
