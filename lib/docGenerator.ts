@@ -1223,9 +1223,10 @@ function processOptTable(
             prevRow.insertBefore(newTrPr, prevRow.firstChild)
           }
 
-          // Fix first cell (number cell) - remove vMerge and vAlign
+          // Fix first cell (number cell) - remove vMerge, vAlign, and extra empty paragraphs
           if (prevCells.length > 0) {
-            const prevTcPr = directChildren(prevCells[0], 'tcPr')[0]
+            const firstCell = prevCells[0]
+            const prevTcPr = directChildren(firstCell, 'tcPr')[0]
             if (prevTcPr) {
               // Remove vMerge
               const vMerges = directChildren(prevTcPr, 'vMerge')
@@ -1233,6 +1234,35 @@ function processOptTable(
               // Remove vAlign (vertical alignment)
               const vAligns = directChildren(prevTcPr, 'vAlign')
               for (const va of vAligns) va.parentNode?.removeChild(va)
+            }
+
+            // Remove extra empty paragraphs from the cell
+            // Keep only the paragraph that contains actual content (the row number)
+            const paragraphs = directChildren(firstCell, 'p')
+            if (paragraphs.length > 1) {
+              // Find which paragraph has actual text content
+              let contentParagraphIdx = -1
+              for (let pIdx = 0; pIdx < paragraphs.length; pIdx++) {
+                const texts = paragraphs[pIdx].getElementsByTagName('w:t')
+                if (texts.length > 0) {
+                  contentParagraphIdx = pIdx
+                  break
+                }
+              }
+
+              // Delete empty paragraphs before the content paragraph
+              for (let pIdx = contentParagraphIdx - 1; pIdx >= 0; pIdx--) {
+                firstCell.removeChild(paragraphs[pIdx])
+              }
+
+              // Delete empty paragraphs after the content paragraph
+              const updatedParagraphs = directChildren(firstCell, 'p')
+              for (let pIdx = updatedParagraphs.length - 1; pIdx > 0; pIdx--) {
+                const texts = updatedParagraphs[pIdx].getElementsByTagName('w:t')
+                if (texts.length === 0) {
+                  firstCell.removeChild(updatedParagraphs[pIdx])
+                }
+              }
             }
           }
         }
