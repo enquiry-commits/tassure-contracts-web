@@ -1200,9 +1200,9 @@ function processOptTable(
           const prevCells = directChildren(prevRow, 'tc')
 
           // Fix row height: set to 560 (normal row height)
-          const prevTrPr = directChildren(prevRow, 'w:trPr')[0]
+          const prevTrPr = directChildren(prevRow, 'trPr')[0]
           if (prevTrPr) {
-            const trHeights = directChildren(prevTrPr, 'w:trHeight')
+            const trHeights = directChildren(prevTrPr, 'trHeight')
             for (const th of trHeights) {
               th.setAttribute('w:val', '560')  // Normal row height
             }
