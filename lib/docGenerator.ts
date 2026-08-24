@@ -1356,12 +1356,24 @@ function processOptTable(
       if (svcKey) {
         if (focServicesSet.has(svcKey)) {
           setFeeCellFoc(cells[cells.length - 1], xmlDoc)
-        } else {
-          // For ND_DEPOSIT2, use the fee value from feeOv, or default to 0
-          const feeValue = svcKey === 'ND_DEPOSIT2' ? (feeOv[svcKey] ?? 0) : feeOv[svcKey]
-          if (feeValue !== undefined) {
-            updateFeeCell(cells[cells.length - 1], feeValue, xmlDoc, languageMode)
+        } else if (feeOv[svcKey] !== undefined) {
+          updateFeeCell(cells[cells.length - 1], feeOv[svcKey], xmlDoc, languageMode)
+        }
+        // Special handling for ND_DEPOSIT2: always update if we have the value
+        if (svcKey === 'ND_DEPOSIT2' && feeOv['ND_DEPOSIT2'] !== undefined) {
+          const feeCell = cells[cells.length - 1]
+          // Clear all content and rebuild
+          for (const child of Array.from(feeCell.childNodes)) {
+            feeCell.removeChild(child)
           }
+          // Create new paragraph with the fee
+          const p = xmlDoc.createElement('w:p')
+          const r = xmlDoc.createElement('w:r')
+          const t = xmlDoc.createElement('w:t')
+          t.textContent = fmtNum(feeOv['ND_DEPOSIT2'])
+          r.appendChild(t)
+          p.appendChild(r)
+          feeCell.appendChild(p)
         }
       }
     }
