@@ -92,6 +92,10 @@ function rowIdForCell(text: string, table: string, languageMode?: string): strin
   for (const [id, rd] of Object.entries(rowDefs)) {
     if (rd.table === table && text.includes(rd.match)) return id
   }
+  // Special handling for ND_DEPOSIT2 in bilingual mode
+  if (table === 'opt' && languageMode !== 'english-only' && text.includes('另付押金')) {
+    return 'OPT_ND_DEPOSIT'
+  }
   return null
 }
 
