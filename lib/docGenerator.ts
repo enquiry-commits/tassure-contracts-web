@@ -1187,25 +1187,35 @@ function processOptTable(
     }
   }
 
-  // If removing ND_DEPOSIT2, clear vMerge and vAlign from ND2's number cell
+  // If removing ND_DEPOSIT2, fix ND2's row height and cell properties
   for (const r of rowsToRemove) {
     const cells = directChildren(r, 'tc')
     if (cells.length > 0) {
       const txt = cells.map(c => cellText(c)).join(' ')
       if (txt.includes('Additional Deposit')) {
-        // Find previous row and fix its first cell
         const allRows = directChildren(tbl, 'tr')
         const rowIdx = allRows.indexOf(r)
         if (rowIdx > 0) {
           const prevRow = allRows[rowIdx - 1]
           const prevCells = directChildren(prevRow, 'tc')
+
+          // Fix row height: set to 560 (normal row height)
+          const prevTrPr = directChildren(prevRow, 'w:trPr')[0]
+          if (prevTrPr) {
+            const trHeights = directChildren(prevTrPr, 'w:trHeight')
+            for (const th of trHeights) {
+              th.setAttribute('w:val', '560')  // Normal row height
+            }
+          }
+
+          // Fix first cell (number cell)
           if (prevCells.length > 0) {
             const prevTcPr = directChildren(prevCells[0], 'tcPr')[0]
             if (prevTcPr) {
               // Remove vMerge
               const vMerges = directChildren(prevTcPr, 'w:vMerge')
               for (const vm of vMerges) vm.parentNode?.removeChild(vm)
-              // Remove vAlign (vertical alignment) to restore default top alignment
+              // Remove vAlign (vertical alignment)
               const vAligns = directChildren(prevTcPr, 'w:vAlign')
               for (const va of vAligns) va.parentNode?.removeChild(va)
             }
