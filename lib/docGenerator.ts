@@ -1192,32 +1192,45 @@ function processOptTable(
     const cells = directChildren(r, 'tc')
     if (cells.length > 0) {
       const txt = cells.map(c => cellText(c)).join(' ')
+      console.log('[DEBUG] Checking row for removal:', txt.substring(0, 50))
       if (txt.includes('Additional Deposit')) {
+        console.log('[DEBUG] Found Additional Deposit row, fixing ND2...')
         const allRows = directChildren(tbl, 'tr')
         const rowIdx = allRows.indexOf(r)
+        console.log('[DEBUG] Row index:', rowIdx)
         if (rowIdx > 0) {
           const prevRow = allRows[rowIdx - 1]
           const prevCells = directChildren(prevRow, 'tc')
+          const prevRowText = prevCells.map(c => cellText(c)).join(' ')
+          console.log('[DEBUG] Previous row text:', prevRowText.substring(0, 50))
 
           // Fix row height: set to 560 (normal row height)
           const prevTrPr = directChildren(prevRow, 'trPr')[0]
+          console.log('[DEBUG] prevTrPr exists:', !!prevTrPr)
           if (prevTrPr) {
             const trHeights = directChildren(prevTrPr, 'trHeight')
+            console.log('[DEBUG] Found trHeight elements:', trHeights.length)
             for (const th of trHeights) {
+              const oldVal = th.getAttribute('w:val')
               th.setAttribute('w:val', '560')  // Normal row height
+              console.log('[DEBUG] Changed row height from', oldVal, 'to 560')
             }
           }
 
           // Fix first cell (number cell)
           if (prevCells.length > 0) {
             const prevTcPr = directChildren(prevCells[0], 'tcPr')[0]
+            console.log('[DEBUG] prevTcPr exists:', !!prevTcPr)
             if (prevTcPr) {
               // Remove vMerge
               const vMerges = directChildren(prevTcPr, 'vMerge')
+              console.log('[DEBUG] Found vMerge elements:', vMerges.length)
               for (const vm of vMerges) vm.parentNode?.removeChild(vm)
               // Remove vAlign (vertical alignment)
               const vAligns = directChildren(prevTcPr, 'vAlign')
+              console.log('[DEBUG] Found vAlign elements:', vAligns.length)
               for (const va of vAligns) va.parentNode?.removeChild(va)
+              console.log('[DEBUG] Removed vMerge and vAlign')
             }
           }
         }
