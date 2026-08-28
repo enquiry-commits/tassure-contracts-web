@@ -814,10 +814,16 @@ function processMainTable(
   }
 
   // Filter rows based on user selection (applies to both bilingual and english-only modes)
+  // CERT/DP_MAIN/LOC_MAIN/GOODWILL_DISC are always re-created dynamically below (with their own
+  // numbering/formatting), so their template rows must always be dropped here — otherwise the
+  // template row (kept by rowLinked when selected) and the dynamic row both render, duplicating the line.
+  const DYNAMIC_ROW_RIDS = new Set(['MAIN_CERT', 'MAIN_DP_MAIN', 'MAIN_LOC_MAIN', 'MAIN_GOODWILL'])
   const rowsToRemove: Element[] = []
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
+    const rid = findRowId(cells, 'main', languageMode)
+    if (rid && DYNAMIC_ROW_RIDS.has(rid)) { rowsToRemove.push(row); continue }
     if (!rowLinked(cells, 'main', sel, mapping, languageMode)) rowsToRemove.push(row)
   }
   for (const r of rowsToRemove) r.parentNode?.removeChild(r)
@@ -1473,12 +1479,17 @@ function processEpTable(
     if (cells.length >= 2 && /^\d+$/.test(cellText(cells[0]).trim())) { epPreRef = row; break }
   }
 
+  // EP_DP_RENEW is always re-created dynamically below (with its own numbering/formatting),
+  // so its template row must always be dropped here — otherwise the template row (kept by
+  // rowLinked when selected) and the dynamic row both render, duplicating the line.
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
   if (languageMode !== 'english-only') {
     for (const row of directChildren(tbl, 'tr')) {
       const cells = directChildren(row, 'tc')
       if (cells.length === 0) continue
+      const rid = findRowId(cells, 'ep', languageMode)
+      if (rid === 'EP_DP_RENEW') { rowsToRemove.push(row); continue }
       if (!rowLinked(cells, 'ep', sel, mapping, languageMode)) {
         rowsToRemove.push(row)
       } else {
@@ -1487,10 +1498,12 @@ function processEpTable(
       }
     }
   } else {
-    // English-only: count all non-header rows
+    // English-only: count all non-header rows, but still drop the static DP_RENEW template row
     for (const row of directChildren(tbl, 'tr')) {
       const cells = directChildren(row, 'tc')
       if (cells.length === 0) continue
+      const rid = findRowId(cells, 'ep', languageMode)
+      if (rid === 'EP_DP_RENEW') { rowsToRemove.push(row); continue }
       const txt = cells.map(c => cellText(c)).join(' ')
       if (!txt.includes('Service Scope')) dataRowsKept++
     }
