@@ -424,6 +424,7 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
   }
 
   // Para 1: update company name (handle both bilingual and English templates)
+  let companyNameUpdated = false
   if (paras.length > 1) {
     const companyPara = paras[1]
     const companyRuns = allDescendants(companyPara, 'r')
@@ -435,22 +436,29 @@ function fillHeader(body: Element, input: DocInput, xmlDoc: any): void {
         } else {
           ts[0].textContent = `Company Name  企业名字:  ${input.companyName}`
         }
+        companyNameUpdated = true
       }
     }
   }
 
-  // If bilingual, may need to insert company name para (for older templates)
-  if (!isEnglishOnly && paras.length < 2) {
+  // If company name not found in Para[1], create/insert it (handles CNEN template)
+  if (!companyNameUpdated) {
     const companyPara = datePara.cloneNode(true) as Element
+    // Clear existing runs
     for (const r of allDescendants(companyPara, 'r')) {
       r.parentNode?.removeChild(r)
     }
     const newRun = xmlDoc.createElement('w:r')
     const newT = xmlDoc.createElement('w:t')
     newT.setAttribute('xml:space', 'preserve')
-    newT.textContent = `Company Name  企业名字:  ${input.companyName}`
+    if (isEnglishOnly) {
+      newT.textContent = `Company Name:  ${input.companyName}`
+    } else {
+      newT.textContent = `Company Name  企业名字:  ${input.companyName}`
+    }
     newRun.appendChild(newT)
     companyPara.appendChild(newRun)
+    // Insert after date paragraph
     body.insertBefore(companyPara, datePara.nextSibling)
   }
 
