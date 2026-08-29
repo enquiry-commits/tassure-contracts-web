@@ -26,7 +26,7 @@ export interface DocInput {
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 // Get the appropriate definitions set based on language mode
-function getDefinitionSet(languageMode?: string): {
+export function getDefinitionSet(languageMode?: string): {
   rowDefs: Record<string, { table: string; label: string; match: string }>
   mapping: Record<string, string[]>
   rowIdToSvc: Record<string, string>
@@ -53,7 +53,7 @@ function fmtSGD(n: number): string {
   return 'SGD ' + int.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + '.' + dec
 }
 
-function directChildren(el: Element, localName: string): Element[] {
+export function directChildren(el: Element, localName: string): Element[] {
   const result: Element[] = []
   for (let i = 0; i < el.childNodes.length; i++) {
     const n = el.childNodes[i]
@@ -64,7 +64,7 @@ function directChildren(el: Element, localName: string): Element[] {
   return result
 }
 
-function allDescendants(el: Element, localName: string): Element[] {
+export function allDescendants(el: Element, localName: string): Element[] {
   const result: Element[] = []
   function walk(node: Element) {
     for (let i = 0; i < node.childNodes.length; i++) {
@@ -79,11 +79,11 @@ function allDescendants(el: Element, localName: string): Element[] {
   return result
 }
 
-function paraText(p: Element): string {
+export function paraText(p: Element): string {
   return allDescendants(p, 't').map(t => t.textContent ?? '').join('')
 }
 
-function cellText(tc: Element): string {
+export function cellText(tc: Element): string {
   return allDescendants(tc, 't').map(t => t.textContent ?? '').join('')
 }
 
@@ -117,7 +117,7 @@ function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: R
 }
 
 // Find row ID by searching across all cells (handles tables with a leading number column).
-function findRowId(cells: Element[], table: string, languageMode?: string): string | null {
+export function findRowId(cells: Element[], table: string, languageMode?: string): string | null {
   const text = cells.map(c => cellText(c)).join(' ')
   return rowIdForCell(text, table, languageMode)
 }
@@ -610,6 +610,17 @@ function insertExtraOptRows(
       const existingFeeParas = directChildren(feeCell, 'p')
       for (const p of existingFeeParas) p.parentNode?.removeChild(p)
       const newFeePara = xmlDoc.createElement('w:p')
+      // pPr with matching font size — without this the paragraph's own
+      // formatting is unset, which reads fine in Word (falls back to the
+      // run's own rPr) but diverges structurally from every other fee row
+      // (same class of inconsistency as the ND_DEPOSIT2 force-rebuild fix).
+      const feePPr = xmlDoc.createElement('w:pPr')
+      const feePRPr = xmlDoc.createElement('w:rPr')
+      const feeSz = xmlDoc.createElement('w:sz'); feeSz.setAttribute('w:val', '20')
+      const feeSzCs = xmlDoc.createElement('w:szCs'); feeSzCs.setAttribute('w:val', '20')
+      feePRPr.appendChild(feeSz); feePRPr.appendChild(feeSzCs)
+      feePPr.appendChild(feePRPr)
+      newFeePara.appendChild(feePPr)
       if (hasFeeOverride) {
         newFeePara.appendChild(makeCalibriRun(fmtNum(feeOv[extra.key]), '20', xmlDoc, 'Calibri'))
       } else {
@@ -1193,11 +1204,21 @@ function processOptTable(
     if (/^\d+$/.test(cellText(cells[0]).trim())) { optDataRef = row; break }
   }
 
+  // OPT_XBRL/OPT_AUDIT/OPT_AIS(_EN) are always re-created dynamically below via
+  // insertExtraOptRows() (with their own numbering/formatting), so their template
+  // rows must always be dropped here — otherwise the template row (kept by rowLinked
+  // when selected, or kept unconditionally when unmatched in bilingual mode) and the
+  // dynamic row both render, duplicating (or phantom-ing) the line.
+  // Mirrors DYNAMIC_ROW_RIDS in processMainTable and the EP_DP_RENEW guard in processEpTable.
+  const DYNAMIC_OPT_RIDS = new Set(['OPT_XBRL', 'OPT_AUDIT', 'OPT_AIS', 'OPT_AIS_EN'])
+
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
   for (const row of directChildren(tbl, 'tr')) {
     const cells = directChildren(row, 'tc')
     if (cells.length === 0) continue
+    const rid = findRowId(cells, 'opt', languageMode)
+    if (rid && DYNAMIC_OPT_RIDS.has(rid)) { rowsToRemove.push(row); continue }
     if (!rowLinked(cells, 'opt', sel, mapping, languageMode)) {
       rowsToRemove.push(row)
     } else {

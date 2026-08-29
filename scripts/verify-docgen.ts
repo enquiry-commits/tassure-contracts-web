@@ -1,0 +1,147 @@
+// scripts/verify-docgen.ts
+//
+// Generation regression harness — the real safety net. Calls the actual
+// generateDocx() (the exact function the production API route uses) across
+// a matrix of scenarios (bilingual x english-only, crossed with selection
+// sets that deliberately cover every "dynamic row" service) and asserts,
+// using the same row-analysis logic as scripts/inspect-docx.ts:
+//
+//   - no service produces 2+ rows in the same table
+//   - every selected "dynamic" service produces exactly 1 row
+//   - every unselected "dynamic" service produces 0 rows (no phantom rows)
+//   - Company Name and Date are always present in the header
+//   - every fee cell has the same tcPr/pPr/rPr "shape" as the majority
+//     (structural formatting-consistency check — catches ND_DEPOSIT2-style
+//     force-rebuilt cells that are missing standard properties)
+//
+// Run this before trusting any lib/docGenerator.ts / lib/services.ts change
+// — it replaces "push, wait for Vercel, ask the user to eyeball a generated
+// file" with something that fails loudly, locally, in seconds.
+//
+// Usage: npm run verify-docgen
+
+import { generateDocx, DocInput } from '../lib/docGenerator'
+import { SERVICES } from '../lib/services'
+import { loadXmlDocFromBuffer, analyzeDocumentXml, DocReport, LanguageMode } from './inspect-docx'
+
+// Services that have a "dynamic row" implementation somewhere in
+// docGenerator.ts (force-removed-then-conditionally-reinserted) — these are
+// exactly the services at risk of the duplicate/phantom-row bug class.
+const DYNAMIC_KEYS = ['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC', 'DP_RENEW', 'XBRL', 'AUDIT', 'AIS', 'ND_DEPOSIT2']
+
+// Anchors: a harmless, always-selected main-table + opt-table service, on
+// top of the app's own defaults. Two independent reasons these matter:
+//  1. GOODWILL_DISC is a discount row that (by design) only ever renders
+//     alongside real main-table purchases — a scenario selecting NOTHING
+//     else in the main table isn't a real proposal shape, it's this
+//     harness inventing a case the app was never meant to handle.
+//  2. MAIN_ND/OPT_ND and MAIN_ND_DEPOSIT/OPT_ND_DEPOSIT intentionally share
+//     ROW_DEFS match text ("Local Nominee Director Service" / "Additional
+//     Deposit") since they're the same service offered in two different
+//     tables (year-1 vs annual-maintenance) — so a table containing ONLY
+//     ND-family rows is structurally ambiguous between 'main' and 'opt' by
+//     content alone. Keeping at least one non-ND anchor selected in each
+//     table means every table this harness generates always has enough
+//     distinguishing content to identify unambiguously — the same
+//     column-count/content signal a human (or docGenerator.ts itself,
+//     which never needs to guess because it reads tables[0]/[1]/[2] off
+//     the pristine template) relies on.
+const ANCHOR_KEYS = ['INCORP', 'ACCOUNTS'] // one main-table, one opt-table service
+const BASELINE = [...new Set([...SERVICES.filter((s) => s.default).map((s) => s.key), ...ANCHOR_KEYS])]
+
+interface Scenario { name: string; selected: string[] }
+
+function scenario(name: string, extra: string[]): Scenario {
+  const sel = new Set([...BASELINE, ...extra])
+  if (sel.has('ND_DEPOSIT2')) sel.add('ND2') // the frontend always pairs these; mirror it here
+  return { name, selected: [...sel] }
+}
+
+const SCENARIOS: Scenario[] = [
+  scenario('baseline', []),
+  scenario('all-dynamic', DYNAMIC_KEYS),
+  ...DYNAMIC_KEYS.map((k) => scenario(`only-${k}`, [k])),
+]
+
+async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<string[]> {
+  const input: DocInput = {
+    companyName: 'Verify Test Pte Ltd',
+    date: '01 January 2026',
+    salutationEn: 'Dear Management,',
+    salutationCn: '尊敬的领导，',
+    mode: 'full',
+    selected: sc.selected,
+    feeOverrides: { GOODWILL_DISC: 100, ND_DEPOSIT2: 3000 },
+    ccOverrides: {},
+    focServices: [],
+    languageMode,
+  }
+  const buf = await generateDocx(input)
+  const xmlDoc = await loadXmlDocFromBuffer(buf)
+  const report = analyzeDocumentXml(xmlDoc, languageMode)
+  return assertScenario(report, sc, languageMode)
+}
+
+function assertScenario(report: DocReport, sc: Scenario, languageMode: string): string[] {
+  const failures: string[] = []
+  const selSet = new Set(sc.selected)
+
+  // No duplicate service rows in any table.
+  for (const t of report.tables) {
+    for (const r of t.rows) {
+      const dup = r.flags.find((f) => f.startsWith('DUPLICATE:'))
+      if (dup) failures.push(`[${languageMode}/${sc.name}] Table ${t.tableIndex}: ${dup} at row ${r.rowIndex} ("${r.textPreview}")`)
+    }
+  }
+
+  // Dynamic services: exactly 1 row if selected, 0 if not.
+  for (const key of DYNAMIC_KEYS) {
+    const count = report.tables.flatMap((t) => t.rows).filter((r) => r.svcKey === key).length
+    const expected = selSet.has(key) ? 1 : 0
+    if (count !== expected) {
+      failures.push(`[${languageMode}/${sc.name}] service ${key}: expected ${expected} row(s), found ${count}`)
+    }
+  }
+
+  // Header always populated.
+  if (!report.companyNameFound) failures.push(`[${languageMode}/${sc.name}] Company Name missing/empty in header`)
+  if (!report.dateFound) failures.push(`[${languageMode}/${sc.name}] Date missing/empty in header`)
+
+  // Fee-cell shape consistency vs. the majority ("reference") shape.
+  const allShapes = report.tables
+    .flatMap((t) => t.rows)
+    .map((r) => r.feeCellShape)
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+  const shapeKey = (s: NonNullable<typeof allShapes[number]>) => `${s.hasTcPr}/${s.hasPPr}/${s.hasRPr}`
+  const counts = new Map<string, number>()
+  for (const s of allShapes) counts.set(shapeKey(s), (counts.get(shapeKey(s)) ?? 0) + 1)
+  const modal = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+  for (const t of report.tables) {
+    for (const r of t.rows) {
+      if (r.feeCellShape && modal && shapeKey(r.feeCellShape) !== modal) {
+        failures.push(`[${languageMode}/${sc.name}] Table ${t.tableIndex} row ${r.rowIndex}: fee-cell shape ${shapeKey(r.feeCellShape)} != reference ${modal} ("${r.textPreview}")`)
+      }
+    }
+  }
+
+  return failures
+}
+
+async function main() {
+  const allFailures: string[] = []
+  for (const languageMode of ['bilingual', 'english-only'] as const) {
+    for (const sc of SCENARIOS) {
+      const failures = await runScenario(languageMode, sc)
+      console.log(`${languageMode} / ${sc.name}: ${failures.length === 0 ? 'PASS' : `FAIL (${failures.length})`}`)
+      allFailures.push(...failures)
+    }
+  }
+  if (allFailures.length) {
+    console.log('\n=== FAILURES ===')
+    allFailures.forEach((f) => console.log(' - ' + f))
+  }
+  console.log(`\n=== ${allFailures.length === 0 ? 'ALL SCENARIOS PASSED' : `${allFailures.length} FAILURE(S)`} ===`)
+  process.exit(allFailures.length > 0 ? 1 : 0)
+}
+
+main().catch((err) => { console.error(err); process.exit(1) })

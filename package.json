@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "inspect-docx": "tsx scripts/inspect-docx.ts",
+    "validate-templates": "tsx scripts/validate-templates.ts",
+    "verify-docgen": "tsx scripts/verify-docgen.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
@@ -26,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
+    "tsx": "^4.23.12",
     "typescript": "^5"
   }
 }
