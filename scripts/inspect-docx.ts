@@ -28,6 +28,7 @@ import { readFileSync } from 'fs'
 import {
   directChildren, allDescendants, paraText, cellText, findRowId, getDefinitionSet,
 } from '../lib/docGenerator'
+import { bookmarkNames, tableMarkerName } from '../lib/template-contract'
 
 export type LanguageMode = 'bilingual' | 'english-only'
 
@@ -76,6 +77,10 @@ function identifyTableRole(
   rows: Element[][],
   languageMode: LanguageMode,
 ): TableRole {
+  for (const role of TABLE_ROLES) {
+    if (bookmarkNames(tbl).includes(tableMarkerName(role))) return role
+  }
+  if (bookmarkNames(tbl).includes(tableMarkerName('changes'))) return 'other'
   // main/opt/ep tables all have the same 3-column shape (No. / Service Scope
   // / Fee). The company-changes table (processChangesTable) is a genuinely
   // different 5-column shape (No. / Service / Description / Qty / Price) —

@@ -7,9 +7,18 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:proposal": "eslint lib/template-contract.ts lib/proposal-plan.ts scripts/tag-templates.ts scripts/template-map.ts scripts/validate-templates.ts scripts/verify-proposal-plan.ts scripts/verify-docgen.ts",
     "inspect-docx": "tsx scripts/inspect-docx.ts",
+    "tag-templates": "tsx scripts/tag-templates.ts",
+    "template-map": "tsx scripts/template-map.ts",
     "validate-templates": "tsx scripts/validate-templates.ts",
-    "verify-docgen": "tsx scripts/verify-docgen.ts"
+    "verify-docgen": "tsx scripts/verify-docgen.ts",
+    "verify-proposal-plan": "tsx scripts/verify-proposal-plan.ts",
+    "visual:generate": "tsx scripts/generate-visual-fixtures.ts",
+    "visual:render": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render-visual-fixtures.ps1",
+    "visual:qa": "npm run visual:generate && npm run visual:render",
+    "typecheck": "tsc --noEmit",
+    "quality:proposal": "npm run typecheck && npm run lint:proposal && npm run validate-templates && npm run template-map && npm run verify-proposal-plan && npm run verify-docgen && npm run build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

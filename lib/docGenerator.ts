@@ -8,6 +8,8 @@ import {
   ROW_DEFS_EN, DEFAULT_MAPPING_EN, ROW_ID_TO_SVC_EN,
 } from './services'
 import { CC_ITEMS } from './company-changes'
+import { findMarkedRowId, findMarkedTable, setMarkedRowId } from './template-contract'
+import { buildProposalPlan } from './proposal-plan'
 
 export interface DocInput {
   companyName: string
@@ -92,10 +94,6 @@ function rowIdForCell(text: string, table: string, languageMode?: string): strin
   for (const [id, rd] of Object.entries(rowDefs)) {
     if (rd.table === table && text.includes(rd.match)) return id
   }
-  // Special handling for ND_DEPOSIT2 in bilingual mode
-  if (table === 'opt' && languageMode !== 'english-only' && text.includes('另付押金')) {
-    return 'OPT_ND_DEPOSIT'
-  }
   return null
 }
 
@@ -103,7 +101,7 @@ function rowIdForCell(text: string, table: string, languageMode?: string): strin
 function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: Record<string, string[]>, languageMode?: string): boolean {
   const text = cells.map(c => cellText(c)).join(' ')
   if (text.includes('Service Scope') || text.includes('Total')) return true
-  const rid = rowIdForCell(text, table, languageMode)
+  const rid = findRowId(cells, table, languageMode)
   if (rid === null) return true  // truly unknown rows always kept
   // FOC merge group rows are controlled directly by service selection, not via the configurable mapping
   if (table === 'main') {
@@ -118,6 +116,13 @@ function rowLinked(cells: Element[], table: string, sel: Set<string>, mapping: R
 
 // Find row ID by searching across all cells (handles tables with a leading number column).
 export function findRowId(cells: Element[], table: string, languageMode?: string): string | null {
+  const row = cells[0]?.parentNode as Element | undefined
+  const markedRowId = row && row.nodeType === 1 ? findMarkedRowId(row) : null
+  if (markedRowId) {
+    const { rowDefs } = getDefinitionSet(languageMode)
+    const definition = rowDefs[markedRowId]
+    if (definition?.table === table) return markedRowId
+  }
   const text = cells.map(c => cellText(c)).join(' ')
   return rowIdForCell(text, table, languageMode)
 }
@@ -536,6 +541,7 @@ function insertExtraOptRows(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   xmlDoc: any,
   dataRef?: Element,  // pre-removal data row for cloning (avoids using header as template)
+  languageMode: 'bilingual' | 'english-only' = 'bilingual',
 ): void {
   const EXTRAS = [
     { key: 'XBRL',  en: 'XBRL Reporting Service', cn: '转换和准备XBRL报告' },
@@ -553,6 +559,10 @@ function insertExtraOptRows(
 
   for (const extra of toInsert) {
     const newRow = templateRow.cloneNode(true) as Element
+    const rowId = extra.key === 'AIS' && languageMode === 'english-only'
+      ? 'OPT_AIS_EN'
+      : `OPT_${extra.key}`
+    setMarkedRowId(newRow, rowId, xmlDoc)
     const cells = directChildren(newRow, 'tc')
     if (cells.length < 2) continue
 
@@ -660,7 +670,19 @@ const SECTION_HEADING: Record<string, string> = {
   LOC:         'Letter of Consent',
 }
 
-function removeServiceSections(body: Element, selected: Set<string>): void {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ensureParagraphFlag(p: Element, flagName: 'keepNext' | 'keepLines', xmlDoc: any): void {
+  let pPr = directChildren(p, 'pPr')[0]
+  if (!pPr) {
+    pPr = xmlDoc.createElement('w:pPr')
+    p.insertBefore(pPr, p.firstChild)
+  }
+  if (directChildren(pPr, flagName).length === 0) {
+    pPr.appendChild(xmlDoc.createElement(`w:${flagName}`))
+  }
+}
+
+function removeServiceSections(body: Element, selected: Set<string>, xmlDoc: any): void {
   const paras = directChildren(body, 'p')
 
   // Find the fee section boundary: first page-break paragraph or known fee heading text.
@@ -694,9 +716,106 @@ function removeServiceSections(body: Element, selected: Set<string>): void {
     if (!keep) {
       const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
       for (let j = startI; j < endI; j++) toDelete.push(paras[j])
+    } else {
+      // A heading and its bullets form one semantic block. Prevent Word from
+      // leaving only the tail of a service on a mostly-empty continuation page.
+      const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
+      for (let j = startI; j < endI; j++) {
+        ensureParagraphFlag(paras[j], 'keepLines', xmlDoc)
+        if (j < endI - 1) ensureParagraphFlag(paras[j], 'keepNext', xmlDoc)
+      }
     }
   }
   for (const elem of toDelete) elem.parentNode?.removeChild(elem)
+}
+
+// Keep the complete Payment Terms block together when it fits on one page.
+// This avoids a single final clause being stranded on a page by itself.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function keepPaymentTermsTogether(body: Element, xmlDoc: any): void {
+  const paras = directChildren(body, 'p')
+  const start = paras.findIndex((p) => paraText(p).includes('Payment Terms'))
+  if (start < 0) return
+
+  let end = paras.findIndex((p, index) => index > start && paraText(p).trim() === 'General')
+  if (end < 0) end = paras.length
+
+  // Blank spacer paragraphs are part of the chain too; leaving one without
+  // keepNext would silently break the group and strand the final clause.
+  const block = paras.slice(start, end)
+  block.forEach((p, index) => {
+    ensureParagraphFlag(p, 'keepLines', xmlDoc)
+    if (index < block.length - 1) ensureParagraphFlag(p, 'keepNext', xmlDoc)
+  })
+}
+
+function removeStalePaginationCache(xmlDoc: Document): void {
+  const staleBreaks = allDescendants(xmlDoc.documentElement as Element, 'lastRenderedPageBreak')
+  for (const marker of staleBreaks) marker.parentNode?.removeChild(marker)
+}
+
+async function ensureRepeatedPageBranding(zip: JSZip): Promise<void> {
+  const documentEntry = zip.file('word/document.xml')
+  const relationshipsEntry = zip.file('word/_rels/document.xml.rels')
+  const settingsEntry = zip.file('word/settings.xml')
+  const contentTypesEntry = zip.file('[Content_Types].xml')
+  const primaryHeader = zip.file('word/header1.xml')
+  const primaryFooter = zip.file('word/footer1.xml')
+  if (!documentEntry || !relationshipsEntry || !settingsEntry || !contentTypesEntry || !primaryHeader || !primaryFooter) {
+    throw new Error('Template contract failed: primary header/footer package parts are missing')
+  }
+
+  let documentXml = await documentEntry.async('string')
+  let relationshipsXml = await relationshipsEntry.async('string')
+  let settingsXml = await settingsEntry.async('string')
+  let contentTypesXml = await contentTypesEntry.async('string')
+
+  // The source templates only define the primary header/footer. Word can
+  // suppress those floating brand elements on some dynamically reflowed
+  // pages. Giving odd and even pages their own identical parts makes the
+  // rendered result deterministic after service blocks are added/removed.
+  if (!/w:headerReference\b[^>]*w:type="even"/.test(documentXml)) {
+    const headerRelId = 'rIdTassureEvenHeader'
+    const footerRelId = 'rIdTassureEvenFooter'
+    zip.file('word/header2.xml', await primaryHeader.async('nodebuffer'))
+    zip.file('word/footer2.xml', await primaryFooter.async('nodebuffer'))
+
+    const primaryHeaderRels = zip.file('word/_rels/header1.xml.rels')
+    if (primaryHeaderRels) {
+      zip.file('word/_rels/header2.xml.rels', await primaryHeaderRels.async('nodebuffer'))
+    }
+    const primaryFooterRels = zip.file('word/_rels/footer1.xml.rels')
+    if (primaryFooterRels) {
+      zip.file('word/_rels/footer2.xml.rels', await primaryFooterRels.async('nodebuffer'))
+    }
+
+    relationshipsXml = relationshipsXml.replace(
+      '</Relationships>',
+      `<Relationship Id="${headerRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/header" Target="header2.xml"/>` +
+      `<Relationship Id="${footerRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer" Target="footer2.xml"/>` +
+      '</Relationships>',
+    )
+    documentXml = documentXml.replace(
+      /(<w:sectPr\b[^>]*>)/,
+      `$1<w:headerReference w:type="even" r:id="${headerRelId}"/>` +
+      `<w:footerReference w:type="even" r:id="${footerRelId}"/>`,
+    )
+    contentTypesXml = contentTypesXml.replace(
+      '</Types>',
+      '<Override PartName="/word/header2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.header+xml"/>' +
+      '<Override PartName="/word/footer2.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.footer+xml"/>' +
+      '</Types>',
+    )
+  }
+
+  if (!/<w:evenAndOddHeaders\b/.test(settingsXml)) {
+    settingsXml = settingsXml.replace('</w:settings>', '<w:evenAndOddHeaders/></w:settings>')
+  }
+
+  zip.file('word/document.xml', documentXml)
+  zip.file('word/_rels/document.xml.rels', relationshipsXml)
+  zip.file('word/settings.xml', settingsXml)
+  zip.file('[Content_Types].xml', contentTypesXml)
 }
 
 // ── renumber table rows ───────────────────────────────────────────────────────
@@ -977,6 +1096,13 @@ function processMainTable(
       if (['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC'].includes(svcKey)) {
         // For special services, create row with empty description and fee, then format separately
         const newRow = createMainTableRow(rowNum, '', '', [''], refRow, xmlDoc)
+        const dynamicRowIds: Record<string, string> = {
+          CERT: 'MAIN_CERT',
+          DP_MAIN: 'MAIN_DP_MAIN',
+          LOC_MAIN: 'MAIN_LOC_MAIN',
+          GOODWILL_DISC: 'MAIN_GOODWILL',
+        }
+        setMarkedRowId(newRow, dynamicRowIds[svcKey], xmlDoc)
         const cells = directChildren(newRow, 'tc')
 
         // Format description cell: EN=Calibri 10pt, CN=Microsoft YaHei 9pt
@@ -1443,7 +1569,7 @@ function processOptTable(
     }
   }
 
-  insertExtraOptRows(tbl, sel, feeOv, focServicesSet, xmlDoc, optDataRef)
+  insertExtraOptRows(tbl, sel, feeOv, focServicesSet, xmlDoc, optDataRef, languageMode)
 
   // Renumber all table rows (works for both bilingual and English templates)
   renumberTableRows(tbl)
@@ -1505,26 +1631,14 @@ function processEpTable(
   // rowLinked when selected) and the dynamic row both render, duplicating the line.
   const rowsToRemove: Element[] = []
   let dataRowsKept = 0
-  if (languageMode !== 'english-only') {
-    for (const row of directChildren(tbl, 'tr')) {
-      const cells = directChildren(row, 'tc')
-      if (cells.length === 0) continue
-      const rid = findRowId(cells, 'ep', languageMode)
-      if (rid === 'EP_DP_RENEW') { rowsToRemove.push(row); continue }
-      if (!rowLinked(cells, 'ep', sel, mapping, languageMode)) {
-        rowsToRemove.push(row)
-      } else {
-        const txt = cells.map(c => cellText(c)).join(' ')
-        if (!txt.includes('Service Scope')) dataRowsKept++
-      }
-    }
-  } else {
-    // English-only: count all non-header rows, but still drop the static DP_RENEW template row
-    for (const row of directChildren(tbl, 'tr')) {
-      const cells = directChildren(row, 'tc')
-      if (cells.length === 0) continue
-      const rid = findRowId(cells, 'ep', languageMode)
-      if (rid === 'EP_DP_RENEW') { rowsToRemove.push(row); continue }
+  for (const row of directChildren(tbl, 'tr')) {
+    const cells = directChildren(row, 'tc')
+    if (cells.length === 0) continue
+    const rid = findRowId(cells, 'ep', languageMode)
+    if (rid === 'EP_DP_RENEW') { rowsToRemove.push(row); continue }
+    if (!rowLinked(cells, 'ep', sel, mapping, languageMode)) {
+      rowsToRemove.push(row)
+    } else {
       const txt = cells.map(c => cellText(c)).join(' ')
       if (!txt.includes('Service Scope')) dataRowsKept++
     }
@@ -1592,6 +1706,7 @@ function processEpTable(
       refRow,
       xmlDoc,
     )
+    setMarkedRowId(newRow, 'EP_DP_RENEW', xmlDoc)
 
     // Format DP renewal service row: description and fee cells
     // Set row height to 1.1cm (624 twips)
@@ -1787,6 +1902,7 @@ function reformatQtyCells(tbl: Element, xmlDoc: any): void {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, xmlDoc: any, languageMode: 'bilingual' | 'english-only' = 'bilingual'): void {
   const rows = directChildren(tbl, 'tr')
+  const rowsById = new Map(rows.map((row) => [findMarkedRowId(row), row]))
   for (const item of CC_ITEMS) {
     let val = ccOverrides[item.key]
     if (val === undefined) {
@@ -1794,8 +1910,9 @@ function processChangesTable(tbl: Element, ccOverrides: Record<string, number>, 
       val = item.default
     }
     if (val === 0) continue
-    if (item.row < rows.length) {
-      const cells = directChildren(rows[item.row], 'tc')
+    const targetRow = rowsById.get(item.key) ?? rows[item.row]
+    if (targetRow) {
+      const cells = directChildren(targetRow, 'tc')
       // Center align row number in first cell
       if (cells.length > 0) {
         for (const p of directChildren(cells[0], 'p')) {
@@ -1990,6 +2107,7 @@ function removeChineseContent(body: Element): void {
 // ── main export ───────────────────────────────────────────────────────────────
 
 export async function generateDocx(input: DocInput): Promise<Buffer> {
+  const plan = buildProposalPlan(input)
   const { templateFileName } = getDefinitionSet(input.languageMode)
   const templatePath = join(process.cwd(), 'template', templateFileName)
   const templateBuffer = readFileSync(templatePath)
@@ -2007,45 +2125,56 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   if (bodies.length === 0) throw new Error('Could not find w:body in document XML')
   const body = bodies[0]
 
-  const selected = new Set(input.selected)
-  const { mapping: selectedMappingDef } = getDefinitionSet(input.languageMode)
-  const mapping = input.sectionMapping ?? Object.fromEntries(
-    Object.entries(selectedMappingDef).map(([k, v]) => [k, [...v]])
-  )
+  const selected = new Set(plan.selected)
+  const mapping = plan.mapping
   const focServicesSet = new Set(input.focServices ?? [])
 
   fillHeader(body, input, xmlDoc)
 
   if (input.mode === 'selected') {
-    removeServiceSections(body, selected)
+    removeServiceSections(body, selected, xmlDoc)
   }
 
-  const tables = directChildren(body, 'tbl')
+  const positionalTables = directChildren(body, 'tbl')
+  const mainTable = findMarkedTable(body, 'main') ?? positionalTables[0]
+  const optTable = findMarkedTable(body, 'opt') ?? positionalTables[1]
+  const epTable = findMarkedTable(body, 'ep') ?? positionalTables[2]
+  const changesTable = findMarkedTable(body, 'changes') ?? positionalTables[3]
+  if (!mainTable || !optTable || !epTable || !changesTable) {
+    throw new Error('Template contract failed: one or more required proposal tables are missing')
+  }
   // Snapshot TABLE 2 column widths from the template before any processing
-  const tbl2ColWidths = tables.length >= 2 ? readColWidths(tables[1]) : []
+  const tbl2ColWidths = readColWidths(optTable)
 
-  if (tables.length >= 1) processMainTable(body, tables[0], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
-  if (tables.length >= 2) processOptTable(body, tables[1], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
-  if (tables.length >= 3) processEpTable(tables[2], selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
-  if (tables.length >= 4) processChangesTable(tables[3], input.ccOverrides, xmlDoc, input.languageMode)
+  processMainTable(body, mainTable, selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
+  processOptTable(body, optTable, selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
+  processEpTable(epTable, selected, input.feeOverrides, mapping, xmlDoc, focServicesSet, input.languageMode)
+  processChangesTable(changesTable, input.ccOverrides, xmlDoc, input.languageMode)
 
   // Align TABLE 1 column widths to TABLE 2 (TABLE 2 is the baseline; TABLE 1 adapts)
-  if (tbl2ColWidths.length > 0 && tables.length >= 1 && tables[0].parentNode) {
-    applyColWidths(tables[0], tbl2ColWidths, xmlDoc)
+  if (tbl2ColWidths.length > 0 && mainTable.parentNode) {
+    applyColWidths(mainTable, tbl2ColWidths, xmlDoc)
   }
 
   addAppendixSpacing(body, xmlDoc)
   normalizeGeneralSpacing(body, xmlDoc, input.languageMode)
+  keepPaymentTermsTogether(body, xmlDoc)
 
   // Remove all Chinese content if english-only mode
   if (input.languageMode === 'english-only') {
     removeChineseContent(body)
   }
 
+  // Word stores cached page-break positions from the original template.
+  // They become invalid as soon as optional services are removed or inserted,
+  // so the final document must force Word to paginate from the real content.
+  removeStalePaginationCache(xmlDoc)
+
   const serializer = new XMLSerializer()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const newXml = serializer.serializeToString(xmlDoc as any)
   zip.file('word/document.xml', newXml)
+  await ensureRepeatedPageBranding(zip)
 
   return zip.generateAsync({ type: 'nodebuffer' }) as Promise<Buffer>
 }

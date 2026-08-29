@@ -26,6 +26,11 @@ import { join } from 'path'
 import { directChildren, cellText, findRowId } from '../lib/docGenerator'
 import { loadXmlDocFromBuffer } from './inspect-docx'
 import { ROW_DEFS, ROW_DEFS_EN } from '../lib/services'
+import { CC_ITEMS } from '../lib/company-changes'
+import {
+  bookmarkNames, findMarkedRowId, findMarkedTable, rowMarkerName, tableMarkerName,
+  type TemplateTableRole,
+} from '../lib/template-contract'
 
 type RowDefs = typeof ROW_DEFS
 
@@ -41,6 +46,7 @@ const TARGETS: Target[] = [
 ]
 
 const TABLE_INDEX: Record<string, number> = { main: 0, opt: 1, ep: 2 }
+const REQUIRED_TABLES: TemplateTableRole[] = ['main', 'opt', 'ep', 'changes']
 
 // Row IDs that are, by design, NEVER present as a static row in either
 // template — they exist purely so docGenerator.ts's "dynamic row" mechanism
@@ -65,6 +71,17 @@ async function validateOne(target: Target): Promise<{ errors: number; warnings: 
   let errors = 0
   let warnings = 0
 
+  // 0. Every mutable table must have one stable invisible marker. This
+  // prevents a newly inserted table from silently shifting tables[0..3].
+  for (const role of REQUIRED_TABLES) {
+    const marker = tableMarkerName(role)
+    const matchingTables = tables.filter((table) => bookmarkNames(table).includes(marker))
+    if (matchingTables.length !== 1) {
+      console.error(`[ERROR] ${target.file}: expected exactly one ${marker}, found ${matchingTables.length}`)
+      errors++
+    }
+  }
+
   // 1. Every ROW_DEFS entry must resolve to exactly one row in its table
   //    (except DYNAMIC_ONLY_RIDS, which are expected to never match).
   for (const [id, def] of Object.entries(target.rowDefs)) {
@@ -85,6 +102,14 @@ async function validateOne(target: Target): Promise<{ errors: number; warnings: 
       console.warn(`[WARN]  ${target.file}: ROW_DEFS.${id} (match='${def.match}') matches ${matches.length} rows — ambiguous`)
       warnings++
     }
+
+
+    const marker = rowMarkerName(id)
+    const markedRows = directChildren(tbl, 'tr').filter((row) => bookmarkNames(row).includes(marker))
+    if (markedRows.length !== 1) {
+      console.error(`[ERROR] ${target.file}: expected exactly one ${marker}, found ${markedRows.length}`)
+      errors++
+    }
   }
 
   // 2. Orphan rows: real template rows with no ROW_DEFS entry at all.
@@ -102,6 +127,30 @@ async function validateOne(target: Target): Promise<{ errors: number; warnings: 
         errors++
       }
     })
+  }
+
+
+  // 3. Company Changes has its own explicit row contract. It must never be
+  // addressed only by a mutable physical row number.
+  const changesTable = findMarkedTable(body, 'changes')
+  if (!changesTable) {
+    console.error(`[ERROR] ${target.file}: marked Company Changes table not found`)
+    errors++
+  } else {
+    const changeRows = directChildren(changesTable, 'tr')
+    for (const item of CC_ITEMS) {
+      const matches = changeRows.filter((row) => findMarkedRowId(row) === item.key)
+      if (matches.length !== 1) {
+        console.error(`[ERROR] ${target.file}: expected exactly one ${rowMarkerName(item.key)}, found ${matches.length}`)
+        errors++
+        continue
+      }
+      const cells = directChildren(matches[0], 'tc')
+      if (cells.length !== 5) {
+        console.error(`[ERROR] ${target.file}: ${item.key} must have 5 cells, found ${cells.length}`)
+        errors++
+      }
+    }
   }
 
   return { errors, warnings }

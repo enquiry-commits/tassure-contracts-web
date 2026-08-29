@@ -23,6 +23,7 @@
 import { generateDocx, DocInput } from '../lib/docGenerator'
 import { SERVICES } from '../lib/services'
 import { loadXmlDocFromBuffer, analyzeDocumentXml, DocReport, LanguageMode } from './inspect-docx'
+import { buildProposalPlan, ProposalPlan } from '../lib/proposal-plan'
 
 // Services that have a "dynamic row" implementation somewhere in
 // docGenerator.ts (force-removed-then-conditionally-reinserted) — these are
@@ -47,7 +48,7 @@ const DYNAMIC_KEYS = ['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC', 'DP_RENEW'
 //     which never needs to guess because it reads tables[0]/[1]/[2] off
 //     the pristine template) relies on.
 const ANCHOR_KEYS = ['INCORP', 'ACCOUNTS'] // one main-table, one opt-table service
-const BASELINE = [...new Set([...SERVICES.filter((s) => s.default).map((s) => s.key), ...ANCHOR_KEYS])]
+const BASELINE = [...ANCHOR_KEYS]
 
 interface Scenario { name: string; selected: string[] }
 
@@ -58,9 +59,9 @@ function scenario(name: string, extra: string[]): Scenario {
 }
 
 const SCENARIOS: Scenario[] = [
-  scenario('baseline', []),
-  scenario('all-dynamic', DYNAMIC_KEYS),
-  ...DYNAMIC_KEYS.map((k) => scenario(`only-${k}`, [k])),
+  scenario('minimal', []),
+  scenario('all-services', SERVICES.map((service) => service.key)),
+  ...SERVICES.map((service) => scenario(`with-${service.key}`, [service.key])),
 ]
 
 async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<string[]> {
@@ -69,20 +70,21 @@ async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<st
     date: '01 January 2026',
     salutationEn: 'Dear Management,',
     salutationCn: '尊敬的领导，',
-    mode: 'full',
+    mode: 'selected',
     selected: sc.selected,
     feeOverrides: { GOODWILL_DISC: 100, ND_DEPOSIT2: 3000 },
     ccOverrides: {},
     focServices: [],
     languageMode,
   }
+  const plan = buildProposalPlan(input)
   const buf = await generateDocx(input)
   const xmlDoc = await loadXmlDocFromBuffer(buf)
   const report = analyzeDocumentXml(xmlDoc, languageMode)
-  return assertScenario(report, sc, languageMode)
+  return assertScenario(report, sc, languageMode, plan)
 }
 
-function assertScenario(report: DocReport, sc: Scenario, languageMode: string): string[] {
+function assertScenario(report: DocReport, sc: Scenario, languageMode: string, plan: ProposalPlan): string[] {
   const failures: string[] = []
   const selSet = new Set(sc.selected)
 
@@ -100,6 +102,19 @@ function assertScenario(report: DocReport, sc: Scenario, languageMode: string): 
     const expected = selSet.has(key) ? 1 : 0
     if (count !== expected) {
       failures.push(`[${languageMode}/${sc.name}] service ${key}: expected ${expected} row(s), found ${count}`)
+    }
+  }
+
+  // Every mapped row follows the selection plan exactly. This covers all
+  // services, not only rows that happen to be implemented dynamically.
+  const allRows = report.tables.flatMap((table) => table.rows)
+  for (const impact of plan.impacts) {
+    for (const rowId of impact.rowIds) {
+      const count = allRows.filter((row) => row.rid === rowId).length
+      const expected = impact.selected ? 1 : 0
+      if (count !== expected) {
+        failures.push(`[${languageMode}/${sc.name}] ${impact.serviceKey}/${rowId}: expected ${expected}, found ${count}`)
+      }
     }
   }
 
