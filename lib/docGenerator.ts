@@ -9,7 +9,9 @@ import {
 } from './services'
 import { CC_ITEMS } from './company-changes'
 import { findMarkedRowId, findMarkedTable, setMarkedRowId } from './template-contract'
-import { buildProposalPlan } from './proposal-plan'
+import { buildProposalPlan, type ProposalPlan } from './proposal-plan'
+
+export const PROPOSAL_GENERATOR_CONTRACT_VERSION = '2026-08-31.1'
 
 export interface DocInput {
   companyName: string
@@ -655,7 +657,7 @@ const SECTION_HEADING: Record<string, string> = {
   ADDRESS:     'Company Registered and Mailing Address',
   ND:          'Nominee Director Service',
   EP:          'Employment Pass application',
-  DP:          "Dependant's Pass",
+  DP:          'Dependant’s Pass (“DP”) Application Service',
   AR:          'Annual Return Service',
   XBRL:        'XBRL Reporting Service',
   ACCOUNTS:    'Management Accounts Preparation',
@@ -668,6 +670,59 @@ const SECTION_HEADING: Record<string, string> = {
   PERSONALTAX: 'Personal Tax',
   PASSRENEWAL: 'Work Pass Renewal Service',
   LOC:         'Letter of Consent',
+}
+
+// One narrative section can be sold through more than one fee-table service.
+// Keep the section whenever any equivalent service is selected. Without this
+// explicit relationship, annual ND, first-year DP and first-year LOC could
+// appear in the fee table while their explanatory section was deleted.
+const SECTION_SELECTION_KEYS: Record<string, string[]> = {
+  SECRETARIAL: ['SECRETARIAL', 'SECRETARIAL2'],
+  ADDRESS: ['ADDRESS', 'ADDRESS2'],
+  ND: ['ND', 'ND2'],
+  DP: ['DP', 'DP_MAIN', 'DP_RENEW'],
+  LOC: ['LOC', 'LOC_MAIN'],
+}
+
+function sectionIsSelected(sectionKey: string, selected: Set<string>): boolean {
+  return (SECTION_SELECTION_KEYS[sectionKey] ?? [sectionKey]).some((key) => selected.has(key))
+}
+
+function findServiceSectionHeadings(paras: Element[]): { feeStartIdx: number; headings: [string, number][] } {
+  let feeStartIdx = paras.length
+  for (let i = 0; i < paras.length; i++) {
+    const text = paraText(paras[i])
+    if (text.includes('Company Incorporation and First-Year Service Fees') || text.includes('Related Service Fees')) {
+      feeStartIdx = i
+      break
+    }
+    const hasPageBreak = allDescendants(paras[i], 'br').some(
+      (br) => (br as Element).getAttribute('w:type') === 'page',
+    )
+    if (hasPageBreak) {
+      feeStartIdx = i
+      break
+    }
+  }
+
+  const headings: [string, number][] = []
+  for (let i = 0; i < feeStartIdx; i++) {
+    const text = paraText(paras[i])
+    const pPr = directChildren(paras[i], 'pPr')[0]
+    const pStyle = pPr ? directChildren(pPr, 'pStyle')[0] : undefined
+    const style = pStyle?.getAttribute('w:val') || pStyle?.getAttribute('val') || ''
+    // Several body paragraphs repeat the heading phrase verbatim (notably
+    // Payroll, Work Pass Renewal and LOC). They are content, not section
+    // boundaries, and must not split or duplicate the detected section.
+    if (style === 'BodyText') continue
+    for (const [svcKey, phrase] of Object.entries(SECTION_HEADING)) {
+      if (text.includes(phrase)) {
+        headings.push([svcKey, i])
+        break
+      }
+    }
+  }
+  return { feeStartIdx, headings }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -684,35 +739,12 @@ function ensureParagraphFlag(p: Element, flagName: 'keepNext' | 'keepLines', xml
 
 function removeServiceSections(body: Element, selected: Set<string>, xmlDoc: any): void {
   const paras = directChildren(body, 'p')
-
-  // Find the fee section boundary: first page-break paragraph or known fee heading text.
-  let feeStartIdx = paras.length
-  for (let i = 0; i < paras.length; i++) {
-    const text = paraText(paras[i])
-    if (text.includes('Company Incorporation and First-Year Service Fees') || text.includes('Related Service Fees')) {
-      feeStartIdx = i; break
-    }
-    const hasPageBreak = allDescendants(paras[i], 'br').some(br => (br as Element).getAttribute('w:type') === 'page')
-    if (hasPageBreak) { feeStartIdx = i; break }
-  }
-
-  // Detect service heading paragraphs in document order using known heading phrases.
-  const headings: [string, number][] = []
-  for (let i = 0; i < feeStartIdx; i++) {
-    const text = paraText(paras[i])
-    for (const [svcKey, phrase] of Object.entries(SECTION_HEADING)) {
-      if (text.includes(phrase)) { headings.push([svcKey, i]); break }
-    }
-  }
-
-  // SECRETARIAL/ADDRESS sections should be kept if EITHER the T1 or T2 version is selected
-  const COUNTERPART: Record<string, string> = { SECRETARIAL: 'SECRETARIAL2', ADDRESS: 'ADDRESS2' }
+  const { feeStartIdx, headings } = findServiceSectionHeadings(paras)
 
   const toDelete: Element[] = []
   for (let hi = 0; hi < headings.length; hi++) {
     const [svcKey, startI] = headings[hi]
-    const counterpart = COUNTERPART[svcKey]
-    const keep = selected.has(svcKey) || (counterpart != null && selected.has(counterpart))
+    const keep = sectionIsSelected(svcKey, selected)
     if (!keep) {
       const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
       for (let j = startI; j < endI; j++) toDelete.push(paras[j])
@@ -727,6 +759,75 @@ function removeServiceSections(body: Element, selected: Set<string>, xmlDoc: any
     }
   }
   for (const elem of toDelete) elem.parentNode?.removeChild(elem)
+}
+
+function assertMeaningfulCompanyName(companyName: string): void {
+  const normalized = companyName.trim()
+  if (!normalized || !/[\p{L}\p{N}]/u.test(normalized)) {
+    throw new Error('Proposal contract failed: company name must contain at least one letter or number')
+  }
+}
+
+function assertGeneratedProposalContract(body: Element, input: DocInput, plan: ProposalPlan): void {
+  const failures: string[] = []
+  const companyName = input.companyName.trim()
+  // Spacer and drawing-anchor paragraphs make fixed indices unreliable.
+  // Require the label and supplied value in the same body paragraph.
+  const bodyParagraphTexts = directChildren(body, 'p').map((paragraph) => {
+    // xmldom reports nodes created during this generation pass as `w:t`
+    // until serialization/reparse, while template nodes report `t`.
+    const textNodes = [...allDescendants(paragraph, 't'), ...allDescendants(paragraph, 'w:t')]
+    return textNodes.map((node) => node.textContent ?? '').join('')
+  })
+  const hasCompanyLine = bodyParagraphTexts.some(
+    (text) => text.includes('Company Name') && text.includes(companyName),
+  )
+  if (!hasCompanyLine) failures.push('company name is missing from the document header')
+  if (!bodyParagraphTexts.some((text) => /Date:\s*\S/.test(text))) {
+    failures.push('proposal date is missing from the document header')
+  }
+
+  const actualRowCounts = new Map<string, number>()
+  for (const table of directChildren(body, 'tbl')) {
+    for (const row of directChildren(table, 'tr')) {
+      const rowId = findMarkedRowId(row)
+      if (rowId) actualRowCounts.set(rowId, (actualRowCounts.get(rowId) ?? 0) + 1)
+    }
+  }
+
+  const expectedRowIds = new Set(plan.impacts.flatMap((impact) => impact.rowIds))
+  for (const [rowId, count] of actualRowCounts) {
+    // Company-change rows belong to the always-present appendix and use a
+    // separate pricing contract, not the selected-service proposal plan.
+    if (rowId.startsWith('CC_R')) continue
+    if (!expectedRowIds.has(rowId)) failures.push(`unexpected marked row ${rowId}`)
+    if (count !== 1) failures.push(`${rowId} appears ${count} times`)
+  }
+  for (const impact of plan.impacts) {
+    for (const rowId of impact.rowIds) {
+      const actual = actualRowCounts.get(rowId) ?? 0
+      const expected = impact.selected ? 1 : 0
+      if (actual !== expected) {
+        failures.push(`${impact.serviceKey}/${rowId}: expected ${expected} row, found ${actual}`)
+      }
+    }
+  }
+
+  const selected = new Set(plan.selected)
+  const { headings } = findServiceSectionHeadings(directChildren(body, 'p'))
+  const headingCounts = new Map<string, number>()
+  for (const [sectionKey] of headings) {
+    headingCounts.set(sectionKey, (headingCounts.get(sectionKey) ?? 0) + 1)
+  }
+  for (const sectionKey of Object.keys(SECTION_HEADING)) {
+    const expected = input.mode === 'full' || sectionIsSelected(sectionKey, selected) ? 1 : 0
+    const actual = headingCounts.get(sectionKey) ?? 0
+    if (actual !== expected) failures.push(`service section ${sectionKey}: expected ${expected}, found ${actual}`)
+  }
+
+  if (failures.length) {
+    throw new Error(`Generated proposal failed final contract: ${failures.join('; ')}`)
+  }
 }
 
 // Keep the complete Payment Terms block together when it fits on one page.
@@ -1366,6 +1467,7 @@ function processOptTable(
         const rowIdx = allRows.indexOf(r)
         if (rowIdx > 0) {
           const prevRow = allRows[rowIdx - 1]
+          const prevRowId = findMarkedRowId(prevRow)
           const prevCells = directChildren(prevRow, 'tc')
 
           // Fix row height: set to 560 (normal row height)
@@ -1435,6 +1537,11 @@ function processOptTable(
               }
             }
           }
+
+          // The marker may have lived in one of the empty paragraphs just
+          // removed above. Restore it on the surviving number paragraph so
+          // later generation stages never have to guess this row by text.
+          if (prevRowId) setMarkedRowId(prevRow, prevRowId, xmlDoc)
         }
       }
     }
@@ -2107,6 +2214,7 @@ function removeChineseContent(body: Element): void {
 // ── main export ───────────────────────────────────────────────────────────────
 
 export async function generateDocx(input: DocInput): Promise<Buffer> {
+  assertMeaningfulCompanyName(input.companyName)
   const plan = buildProposalPlan(input)
   const { templateFileName } = getDefinitionSet(input.languageMode)
   const templatePath = join(process.cwd(), 'template', templateFileName)
@@ -2135,13 +2243,12 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
     removeServiceSections(body, selected, xmlDoc)
   }
 
-  const positionalTables = directChildren(body, 'tbl')
-  const mainTable = findMarkedTable(body, 'main') ?? positionalTables[0]
-  const optTable = findMarkedTable(body, 'opt') ?? positionalTables[1]
-  const epTable = findMarkedTable(body, 'ep') ?? positionalTables[2]
-  const changesTable = findMarkedTable(body, 'changes') ?? positionalTables[3]
+  const mainTable = findMarkedTable(body, 'main')
+  const optTable = findMarkedTable(body, 'opt')
+  const epTable = findMarkedTable(body, 'ep')
+  const changesTable = findMarkedTable(body, 'changes')
   if (!mainTable || !optTable || !epTable || !changesTable) {
-    throw new Error('Template contract failed: one or more required proposal tables are missing')
+    throw new Error('Template contract failed: stable table markers are missing; refusing positional fallback')
   }
   // Snapshot TABLE 2 column widths from the template before any processing
   const tbl2ColWidths = readColWidths(optTable)
@@ -2164,6 +2271,11 @@ export async function generateDocx(input: DocInput): Promise<Buffer> {
   if (input.languageMode === 'english-only') {
     removeChineseContent(body)
   }
+
+  // Final fail-closed audit. A proposal with missing/duplicate/phantom rows,
+  // an absent client name, or mismatched narrative sections must never leave
+  // the server as a seemingly successful download.
+  assertGeneratedProposalContract(body, input, plan)
 
   // Word stores cached page-break positions from the original template.
   // They become invalid as soon as optional services are removed or inserted,

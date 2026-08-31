@@ -265,7 +265,10 @@ function GeneratePageContent() {
   }, [])
 
   const handleGenerate = async (mode: 'full' | 'selected') => {
-    if (!companyName.trim()) { setError('Please enter a Company Name'); return }
+    if (!/[\p{L}\p{N}]/u.test(companyName.trim())) {
+      setError('Please enter a valid Company Name (letters or numbers required)')
+      return
+    }
     if (!selectedPic) { setError('Please select a PIC'); return }
     setGenerating(true)
     setError(null)

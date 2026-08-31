@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
-import { generateDocx } from '@/lib/docGenerator'
+import { generateDocx, PROPOSAL_GENERATOR_CONTRACT_VERSION } from '@/lib/docGenerator'
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       languageMode,
     } = body
 
-    if (!companyName || !pic) {
+    if (!companyName || !/[\p{L}\p{N}]/u.test(String(companyName).trim()) || !pic) {
       return NextResponse.json({ error: 'companyName and pic are required' }, { status: 400 })
     }
 
@@ -157,6 +157,8 @@ export async function POST(request: NextRequest) {
       downloadUrl: signedUrlData.signedUrl,
       contract,
       replaced: !!existingId,
+      generatorContractVersion: PROPOSAL_GENERATOR_CONTRACT_VERSION,
+      generatorCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
     })
   } catch (err) {
     console.error('Generate error:', err)
