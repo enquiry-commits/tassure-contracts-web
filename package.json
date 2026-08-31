@@ -17,6 +17,8 @@
     "visual:generate": "tsx scripts/generate-visual-fixtures.ts",
     "visual:render": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/render-visual-fixtures.ps1",
     "visual:qa": "npm run visual:generate && npm run visual:render",
+    "qa:worker": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-visual-qa-worker.ps1",
+    "qa:worker:once": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run-visual-qa-worker.ps1 -Once",
     "typecheck": "tsc --noEmit",
     "quality:proposal": "npm run typecheck && npm run lint:proposal && npm run validate-templates && npm run template-map && npm run verify-proposal-plan && npm run verify-docgen && npm run build"
   },

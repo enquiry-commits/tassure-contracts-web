@@ -134,6 +134,7 @@ function GeneratePageContent() {
   const [generating, setGenerating] = useState(false)
   const [showPopup, setShowPopup] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [qaProgress, setQaProgress] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient()
@@ -272,6 +273,7 @@ function GeneratePageContent() {
     if (!selectedPic) { setError('Please select a PIC'); return }
     setGenerating(true)
     setError(null)
+    setQaProgress('Creating proposal draft…')
 
     const feeOverrides: Record<string, number> = {}
     for (const svc of SERVICES) {
@@ -335,9 +337,15 @@ function GeneratePageContent() {
     }
 
     try {
+      const { data: { session } } = await createSupabaseBrowserClient().auth.getSession()
+      if (!session?.access_token) throw new Error('Your session has expired. Please sign in again.')
+      const authHeaders = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      }
       const resp = await fetch('/api/contracts/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: authHeaders,
         body: JSON.stringify({
           companyName: companyName.trim(),
           date: proposalDate,
@@ -356,16 +364,60 @@ function GeneratePageContent() {
       })
       const data = await resp.json()
       if (data.success) {
-        const a = document.createElement('a')
-        a.href = data.downloadUrl
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        if (!data.qaStatusUrl) throw new Error('Visual QA status link is missing')
+        const deadline = Date.now() + 15 * 60_000
+        let consecutiveErrors = 0
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 2500))
+          try {
+            const qaResponse = await fetch(data.qaStatusUrl, {
+              cache: 'no-store',
+              headers: { Authorization: authHeaders.Authorization },
+            })
+            const qa = await qaResponse.json()
+            if (!qaResponse.ok) throw new Error(qa.error || 'Unable to read QA status')
+            consecutiveErrors = 0
+
+            if (qa.status === 'pending') {
+              setQaProgress('Waiting for the Windows Word quality check…')
+              continue
+            }
+            if (qa.status === 'rendering') {
+              setQaProgress('Microsoft Word is rendering and checking every page…')
+              continue
+            }
+            if (qa.status === 'review_required') {
+              setQaProgress(null)
+              setError(`Proposal ${qa.referenceId} needs visual review. It has not been released; open Admin Dashboard to approve or reject it.`)
+              return
+            }
+            if (qa.status === 'passed' && qa.downloadUrl) {
+              setQaProgress('Word visual QA passed — downloading approved proposal…')
+              const a = document.createElement('a')
+              a.href = qa.downloadUrl
+              document.body.appendChild(a)
+              a.click()
+              document.body.removeChild(a)
+              window.setTimeout(() => setQaProgress(null), 4000)
+              return
+            }
+            if (qa.status === 'failed' || qa.status === 'rejected') {
+              setQaProgress(null)
+              setError(`Proposal was not released: ${qa.failure || 'visual QA did not pass'}`)
+              return
+            }
+          } catch {
+            consecutiveErrors++
+            if (consecutiveErrors >= 3) throw new Error('Visual QA status could not be reached')
+          }
+        }
+        throw new Error('Visual QA is taking longer than expected. The proposal remains safely blocked; check Admin Dashboard.')
       } else {
         setError(data.error || 'Generation failed')
       }
-    } catch {
-      setError('Network error — please try again')
+    } catch (caught) {
+      setQaProgress(null)
+      setError(caught instanceof Error ? caught.message : 'Network error — please try again')
     } finally {
       setGenerating(false)
     }
@@ -587,7 +639,8 @@ function GeneratePageContent() {
 
           <div className="flex-1" />
 
-          {error && <span className="text-sm text-red-500">{error}</span>}
+          {qaProgress && <span className="max-w-72 text-sm font-semibold text-[#1A3F6F]">{qaProgress}</span>}
+          {error && <span className="max-w-80 text-sm text-red-500">{error}</span>}
 
           {/* Grand Total */}
           <div
@@ -611,14 +664,14 @@ function GeneratePageContent() {
               disabled={generating}
               className="bg-[#0A2D5A] hover:bg-[#1A4A7F] disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors"
             >
-              {generating ? 'Generating…' : 'Generate / Full Details  →'}
+              {generating ? 'Word QA in progress…' : 'Generate / Full Details  →'}
             </button>
             <button
               onClick={() => handleGenerate('selected')}
               disabled={generating}
               className="bg-[#2D5A0A] hover:bg-[#3F7F1A] disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg transition-colors"
             >
-              Generate / Selected Only  →
+              {generating ? 'Please wait…' : 'Generate / Selected Only  →'}
             </button>
           </div>
         </div>

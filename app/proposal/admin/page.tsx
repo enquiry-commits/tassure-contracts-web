@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import ContractTable from '@/components/ContractTable'
+import VisualQaQueue from '@/components/VisualQaQueue'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 
@@ -63,6 +64,7 @@ export default function AdminPage() {
           <p className="text-sm text-[#6B7FA0] mt-0.5">Track delivery and signature status for all generated proposals</p>
         </div>
 
+        <VisualQaQueue />
         <ContractTable />
       </main>
     </div>

@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { generateDocx, PROPOSAL_GENERATOR_CONTRACT_VERSION } from '@/lib/docGenerator'
+import { enqueueVisualQaJob } from '@/lib/visual-qa'
+import { getAuthorizedProposalUser } from '@/lib/proposal-auth'
 
 export async function POST(request: NextRequest) {
   try {
+    if (!await getAuthorizedProposalUser(request)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
     const {
       companyName, date, salutationEn, salutationCn,
@@ -81,81 +86,30 @@ export async function POST(request: NextRequest) {
     const displayFileName = storageFileName
     const filePath = `contracts/${year}/${month}/${storageFileName}`
 
-    // Delete old file from storage if replacing
-    if (oldFilePath && oldFilePath !== filePath) {
-      await supabase.storage.from('contracts').remove([oldFilePath])
-    }
-
-    const { error: uploadError } = await supabase.storage
-      .from('contracts')
-      .upload(filePath, docBuffer, {
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        upsert: true, // overwrite if same path
-      })
-
-    if (uploadError) {
-      console.error('Upload error:', uploadError)
-      return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
-    }
-
-    const { data: signedUrlData, error: urlError } = await supabase.storage
-      .from('contracts')
-      .createSignedUrl(filePath, 60 * 60 * 24 * 7, {
-        download: displayFileName,
-      })
-
-    if (urlError || !signedUrlData) {
-      return NextResponse.json({ error: 'Failed to create download URL' }, { status: 500 })
-    }
-
-    let contract
-    if (existingId) {
-      // UPDATE existing record
-      const { data, error: dbError } = await supabase
-        .from('contracts')
-        .update({
-          client_name: companyName,
-          pic,
-          file_path: filePath,
-          file_url: signedUrlData.signedUrl,
-        })
-        .eq('id', existingId)
-        .select()
-        .single()
-
-      if (dbError) {
-        console.error('DB update error:', dbError)
-        return NextResponse.json({ error: 'Failed to update record' }, { status: 500 })
-      }
-      contract = data
-    } else {
-      // INSERT new record
-      const { data, error: dbError } = await supabase
-        .from('contracts')
-        .insert({
-          reference_id: referenceId,
-          client_name: companyName,
-          pic,
-          remarks: null,
-          file_path: filePath,
-          file_url: signedUrlData.signedUrl,
-          is_delivered: false,
-        })
-        .select()
-        .single()
-
-      if (dbError) {
-        console.error('DB insert error:', dbError)
-        return NextResponse.json({ error: 'Failed to save record' }, { status: 500 })
-      }
-      contract = data
-    }
+    // Fail closed: the generated file is a private draft until a Windows
+    // worker opens it in Microsoft Word, renders every page and passes the
+    // visual gate. Existing proposals are left untouched until approval.
+    const qaJob = await enqueueVisualQaJob(supabase, {
+      referenceId,
+      clientName: companyName.trim(),
+      pic,
+      replaceId: existingId || null,
+      oldFilePath,
+      finalPath: filePath,
+      displayFileName,
+      languageMode: languageMode || 'bilingual',
+      selected: [...new Set(Array.isArray(selected) ? selected : [])],
+      generatorContractVersion: PROPOSAL_GENERATOR_CONTRACT_VERSION,
+      generatorCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
+    }, docBuffer)
 
     return NextResponse.json({
       success: true,
       referenceId,
-      downloadUrl: signedUrlData.signedUrl,
-      contract,
+      qaRequired: true,
+      qaJobId: qaJob.id,
+      qaStatus: qaJob.status,
+      qaStatusUrl: `/api/visual-qa/${qaJob.id}`,
       replaced: !!existingId,
       generatorContractVersion: PROPOSAL_GENERATOR_CONTRACT_VERSION,
       generatorCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
