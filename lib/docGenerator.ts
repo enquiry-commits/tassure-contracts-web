@@ -749,12 +749,26 @@ function removeServiceSections(body: Element, selected: Set<string>, xmlDoc: any
       const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
       for (let j = startI; j < endI; j++) toDelete.push(paras[j])
     } else {
-      // A heading and its bullets form one semantic block. Prevent Word from
-      // leaving only the tail of a service on a mostly-empty continuation page.
+      // A heading must never be orphaned alone at the bottom of a page with
+      // its content starting fresh on the next page. But gluing together the
+      // ENTIRE section (heading + every bullet, however long) over-corrects:
+      // if that whole block doesn't fit in the remaining space on a page,
+      // Word pushes it ALL to the next page, leaving a large blank gap
+      // behind on the page before it — this is the "why is there so much
+      // empty space" symptom, not leftover/undeleted content.
+      // Only glue the heading to a small, fixed number of paragraphs right
+      // after it (enough to also cover the section's first bilingual EN/CN
+      // bullet pair, since the heading itself is a single combined EN+CN
+      // paragraph in this template). This bounds the worst-case forced
+      // block to a few lines regardless of how long the section is — the
+      // rest of the section flows across a page break normally, same as
+      // any other multi-paragraph content in the document.
       const endI = hi + 1 < headings.length ? headings[hi + 1][1] : feeStartIdx
+      const HEADING_KEEP_WINDOW = 2
+      const keepNextUntil = Math.min(startI + HEADING_KEEP_WINDOW, endI - 1)
       for (let j = startI; j < endI; j++) {
         ensureParagraphFlag(paras[j], 'keepLines', xmlDoc)
-        if (j < endI - 1) ensureParagraphFlag(paras[j], 'keepNext', xmlDoc)
+        if (j < keepNextUntil) ensureParagraphFlag(paras[j], 'keepNext', xmlDoc)
       }
     }
   }
