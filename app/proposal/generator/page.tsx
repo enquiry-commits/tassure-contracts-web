@@ -2,7 +2,23 @@
 
 import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { SERVICES, CATEGORIES, DEFAULT_MAPPING, ROW_DEFS, type Service } from '@/lib/services'
+import { SERVICES, CATEGORIES, DEFAULT_MAPPING, DEFAULT_MAPPING_EN, ROW_DEFS, ROW_DEFS_EN, type Service } from '@/lib/services'
+
+// The section-mapping editor (Settings tab) and its default state must
+// track the currently selected template language: bilingual and
+// english-only templates have different row IDs (e.g. bilingual's OPT_AIS
+// vs. english-only's OPT_AIS_EN — the backend's buildProposalPlan()
+// validates every mapped row against the language-specific ROW_DEFS and
+// throws if it doesn't exist there). Picking the wrong one by hardcoding
+// bilingual's DEFAULT_MAPPING/ROW_DEFS regardless of languageMode is what
+// produced "sectionMapping.AIS: unknown row OPT_AIS for english-only".
+function defaultMappingFor(mode: 'bilingual' | 'english-only'): Record<string, string[]> {
+  const src = mode === 'english-only' ? DEFAULT_MAPPING_EN : DEFAULT_MAPPING
+  return Object.fromEntries(Object.entries(src).map(([k, v]) => [k, [...v]]))
+}
+function rowDefsFor(mode: 'bilingual' | 'english-only') {
+  return mode === 'english-only' ? ROW_DEFS_EN : ROW_DEFS
+}
 import { CC_ITEMS, type CcItem } from '@/lib/company-changes'
 import { createSupabaseBrowserClient } from '@/lib/supabase'
 
@@ -118,9 +134,23 @@ function GeneratePageContent() {
   })
 
   // settings
-  const [sectionMapping, setSectionMapping] = useState<Record<string, string[]>>(() =>
-    Object.fromEntries(Object.entries(DEFAULT_MAPPING).map(([k, v]) => [k, [...v]]))
-  )
+  const [sectionMapping, setSectionMapping] = useState<Record<string, string[]>>(() => defaultMappingFor(languageMode))
+  // Re-sync the section mapping whenever the template language changes —
+  // bilingual and english-only templates use different row IDs, so a
+  // mapping built for one is invalid for the other (see the comment above
+  // defaultMappingFor). Any manual edits made in the Settings tab are reset
+  // by a language switch; that's an acceptable trade-off for a feature this
+  // rarely touched, versus the alternative of silently carrying over row
+  // IDs that don't exist in the newly selected template and failing at
+  // generation time with "unknown row ... for <mode>". Adjusted during
+  // render (React's documented pattern for "reset state when a prop
+  // changes") rather than in a useEffect, which would trigger an extra
+  // cascading render for what is otherwise a plain derived reset.
+  const [prevLanguageModeForMapping, setPrevLanguageModeForMapping] = useState(languageMode)
+  if (languageMode !== prevLanguageModeForMapping) {
+    setPrevLanguageModeForMapping(languageMode)
+    setSectionMapping(defaultMappingFor(languageMode))
+  }
   const [settingsSection, setSettingsSection] = useState<string | null>(SERVICES[0]?.key ?? null)
   const [settingsFilter, setSettingsFilter] = useState(false)
 
@@ -590,6 +620,7 @@ function GeneratePageContent() {
             {activeTab === 'st' && (
               <SettingsTab
                 sectionMapping={sectionMapping}
+                rowDefs={rowDefsFor(languageMode)}
                 currentSection={settingsSection}
                 selected={selected}
                 filterSelected={settingsFilter}
@@ -603,9 +634,7 @@ function GeneratePageContent() {
                     return { ...prev, [section]: linked }
                   })
                 }}
-                onReset={() => setSectionMapping(
-                  Object.fromEntries(Object.entries(DEFAULT_MAPPING).map(([k, v]) => [k, [...v]]))
-                )}
+                onReset={() => setSectionMapping(defaultMappingFor(languageMode))}
               />
             )}
           </div>
@@ -1273,9 +1302,10 @@ const TABLE_LABELS: Record<string, string> = {
   ep:   'Table 3 — EP / Work Pass  （就业准证服务）',
 }
 
-function SettingsTab({ sectionMapping, currentSection, selected, filterSelected,
+function SettingsTab({ sectionMapping, rowDefs, currentSection, selected, filterSelected,
   onFilterChange, onSectionSelect, onMappingChange, onReset }: {
   sectionMapping: Record<string, string[]>
+  rowDefs: Record<string, { table: string; label: string; match: string }>
   currentSection: string | null
   selected: Set<string>
   filterSelected: boolean
@@ -1331,7 +1361,7 @@ function SettingsTab({ sectionMapping, currentSection, selected, filterSelected,
           </div>
         </div>
         <div className="overflow-y-auto flex-1 p-4">
-          {Object.entries(ROW_DEFS).map(([rowId, rdef]) => {
+          {Object.entries(rowDefs).map(([rowId, rdef]) => {
             const showHeader = rdef.table !== prevTable
             prevTable = rdef.table
             return (
