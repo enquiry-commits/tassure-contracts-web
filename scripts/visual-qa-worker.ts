@@ -51,17 +51,45 @@ async function runPowerShell(script: string, args: string[], wordPidPath: string
     ], { stdio: 'inherit', windowsHide: true })
     const timer = setTimeout(() => {
       timedOut = true
-      void readFile(wordPidPath, 'utf8').then((value) => {
-        const wordPids = value.split(/\s+/)
-          .map(Number)
-          .filter((wordPid) => Number.isInteger(wordPid) && wordPid > 0)
-        for (const wordPid of wordPids) {
-          const wordKiller = spawn('taskkill.exe', ['/PID', String(wordPid), '/T', '/F'], {
+      // render-proposal-word-qa.ps1 only writes wordPidPath AFTER Word has
+      // successfully bound via GetObject. A hang that occurs BEFORE that
+      // point -- e.g. stuck inside GetObject itself, exactly what happens
+      // when another process (observed: a concurrent Codex session) is
+      // also trying to create/bind a Word COM instance around the same
+      // time -- means the file never gets written. readFile then fails,
+      // the .catch below swallows it, and the only kill that ran was
+      // `taskkill /PID <this pwsh wrapper> /T /F` -- which does not
+      // reliably reach a Word.exe launched via Start-Process from that
+      // wrapper (a known Windows quirk: /T's process-tree kill is not
+      // guaranteed to cover a GUI app started this way). Observed result:
+      // an orphaned WINWORD.exe surviving 12+ minutes after this timeout
+      // fired, with nothing left to clean it up until someone notices and
+      // kills it by hand. Falling back to killing every WINWORD.exe by
+      // image name here is blunt, but safe: render-proposal-word-qa.ps1's
+      // own precondition already refuses to start a new render while any
+      // WINWORD.exe exists, so by the time OUR attempt has timed out,
+      // whatever WINWORD.exe process(es) exist are either our own hung,
+      // unbound instance or some other collision we need cleared anyway
+      // to let the queue make progress.
+      void readFile(wordPidPath, 'utf8')
+        .then((value) => {
+          const wordPids = value.split(/\s+/)
+            .map(Number)
+            .filter((wordPid) => Number.isInteger(wordPid) && wordPid > 0)
+          if (wordPids.length === 0) throw new Error('empty pid file')
+          for (const wordPid of wordPids) {
+            const wordKiller = spawn('taskkill.exe', ['/PID', String(wordPid), '/T', '/F'], {
+              stdio: 'ignore', windowsHide: true,
+            })
+            wordKiller.unref()
+          }
+        })
+        .catch(() => {
+          const fallbackKiller = spawn('taskkill.exe', ['/IM', 'WINWORD.EXE', '/F'], {
             stdio: 'ignore', windowsHide: true,
           })
-          wordKiller.unref()
-        }
-      }).catch(() => undefined)
+          fallbackKiller.unref()
+        })
       if (child.pid) {
         const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {
           stdio: 'ignore', windowsHide: true,
