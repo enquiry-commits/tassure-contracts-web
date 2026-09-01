@@ -32,22 +32,35 @@ function findPython(): string {
   return found
 }
 
+function findPowerShell(): string {
+  const candidates = [
+    process.env.QA_POWERSHELL_PATH,
+    join(homedir(), '.cache', 'codex-runtimes', 'codex-primary-runtime', 'dependencies', 'native', 'powershell', 'pwsh.exe'),
+  ].filter((candidate): candidate is string => Boolean(candidate))
+  const found = candidates.find(existsSync)
+  if (!found) throw new Error('QA PowerShell 7 runtime was not found. Set QA_POWERSHELL_PATH.')
+  return found
+}
+
 async function runPowerShell(script: string, args: string[], wordPidPath: string): Promise<number> {
   return new Promise((resolvePromise, reject) => {
     const timeoutMs = Number(process.env.QA_RENDER_TIMEOUT_MS ?? 180_000)
     let timedOut = false
-    const child = spawn('powershell.exe', [
+    const child = spawn(findPowerShell(), [
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, ...args,
     ], { stdio: 'inherit', windowsHide: true })
     const timer = setTimeout(() => {
       timedOut = true
       void readFile(wordPidPath, 'utf8').then((value) => {
-        const wordPid = Number(value.trim())
-        if (!Number.isInteger(wordPid) || wordPid <= 0) return
-        const wordKiller = spawn('taskkill.exe', ['/PID', String(wordPid), '/T', '/F'], {
-          stdio: 'ignore', windowsHide: true,
-        })
-        wordKiller.unref()
+        const wordPids = value.split(/\s+/)
+          .map(Number)
+          .filter((wordPid) => Number.isInteger(wordPid) && wordPid > 0)
+        for (const wordPid of wordPids) {
+          const wordKiller = spawn('taskkill.exe', ['/PID', String(wordPid), '/T', '/F'], {
+            stdio: 'ignore', windowsHide: true,
+          })
+          wordKiller.unref()
+        }
       }).catch(() => undefined)
       if (child.pid) {
         const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], {

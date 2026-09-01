@@ -92,6 +92,7 @@ async function uploadJson(
     .from(VISUAL_QA_BUCKET)
     .upload(path, Buffer.from(JSON.stringify(value, null, 2)), {
       contentType: 'application/json; charset=utf-8',
+      cacheControl: '0',
       upsert: true,
     })
   if (error) throw new Error(`Visual QA storage write failed (${path}): ${error.message}`)
@@ -103,9 +104,14 @@ export async function readVisualQaJob(
 ): Promise<VisualQaJob | null> {
   const { data, error } = await supabase.storage
     .from(VISUAL_QA_BUCKET)
-    .download(visualQaJobPath(jobId))
-  if (error || !data) return null
-  return JSON.parse(await data.text()) as VisualQaJob
+    .createSignedUrl(visualQaJobPath(jobId), 60)
+  if (error || !data?.signedUrl) return null
+
+  const freshUrl = new URL(data.signedUrl)
+  freshUrl.searchParams.set('qa_read', `${Date.now()}-${Math.random().toString(36).slice(2)}`)
+  const response = await fetch(freshUrl, { cache: 'no-store' })
+  if (!response.ok) return null
+  return JSON.parse(await response.text()) as VisualQaJob
 }
 
 export async function writeVisualQaJob(

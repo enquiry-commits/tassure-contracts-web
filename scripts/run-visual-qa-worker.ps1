@@ -17,7 +17,7 @@ foreach ($line in Get-Content -LiteralPath $envFile) {
   $name, $value = $line -split '=', 2
   $name = $name.Trim()
   $value = $value.Trim().Trim('"').Trim("'")
-  if ($name -in @('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'QA_PYTHON_PATH', 'QA_RENDER_TIMEOUT_MS')) {
+  if ($name -in @('NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY', 'QA_PYTHON_PATH', 'QA_POWERSHELL_PATH', 'QA_PDFTOPPM_PATH', 'QA_RENDER_TIMEOUT_MS')) {
     [Environment]::SetEnvironmentVariable($name, $value, 'Process')
   }
 }
