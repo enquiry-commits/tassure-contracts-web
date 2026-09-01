@@ -1179,13 +1179,13 @@ function processMainTable(
         feeLines: [fmtNum(feeOv['LOC_MAIN'] ?? 200) + '/person 每位'],
       },
     ]
-    if (goodwillDiscount > 0) {
+    if (sel.has('GOODWILL_DISC')) {
       dynRows.push({
         svcKey: 'GOODWILL_DISC',
         numPlaceholder: '',   // empty → renumber skips it
         descEN: 'Goodwill Discount',
         descCN: '折扣-整体配套',
-        feeLines: ['-' + fmtNum(goodwillDiscount)],
+        feeLines: [goodwillDiscount > 0 ? '-' + fmtNum(goodwillDiscount) : fmtNum(0)],
       })
     }
 

@@ -50,7 +50,12 @@ const DYNAMIC_KEYS = ['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC', 'DP_RENEW'
 const ANCHOR_KEYS = ['INCORP', 'ACCOUNTS'] // one main-table, one opt-table service
 const BASELINE = [...ANCHOR_KEYS]
 
-interface Scenario { name: string; selected: string[]; companyName?: string }
+interface Scenario {
+  name: string
+  selected: string[]
+  companyName?: string
+  goodwillDiscount?: number
+}
 
 function scenario(name: string, extra: string[]): Scenario {
   const sel = new Set([...BASELINE, ...extra])
@@ -61,6 +66,7 @@ function scenario(name: string, extra: string[]): Scenario {
 const SCENARIOS: Scenario[] = [
   scenario('minimal', []),
   { ...scenario('empty-company-name', []), companyName: '' },
+  { ...scenario('goodwill-discount-positive', ['GOODWILL_DISC']), goodwillDiscount: 100 },
   scenario('all-services', SERVICES.map((service) => service.key)),
   ...SERVICES.map((service) => scenario(`with-${service.key}`, [service.key])),
 ]
@@ -68,7 +74,8 @@ const SCENARIOS: Scenario[] = [
 async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<string[]> {
   // Match the quote builder's conditional special-field payload exactly.
   // The reported production failure was ND selected with a zero deposit.
-  const feeOverrides: Record<string, number> = { GOODWILL_DISC: 100 }
+  const feeOverrides: Record<string, number> = {}
+  if (sc.goodwillDiscount !== undefined) feeOverrides.GOODWILL_DISC = sc.goodwillDiscount
   if (sc.selected.includes('ND')) feeOverrides.ND_DEPOSIT = 0
   if (sc.selected.includes('ND_DEPOSIT2')) feeOverrides.ND_DEPOSIT2 = 3000
   const input: DocInput = {
@@ -130,6 +137,19 @@ function assertScenario(report: DocReport, sc: Scenario, languageMode: string, p
     const depositRow = allRows.find((row) => row.rid === 'MAIN_ND_DEPOSIT')
     if (!depositRow?.textPreview.includes('0.00')) {
       failures.push(`[${languageMode}/${sc.name}] MAIN_ND_DEPOSIT: expected rendered fee 0.00`)
+    }
+  }
+
+  // The quote builder omits a zero-value goodwill override. Selection alone
+  // must still produce exactly one discount row without rendering "-0.00".
+  if (selSet.has('GOODWILL_DISC')) {
+    const goodwillRow = allRows.find((row) => row.rid === 'MAIN_GOODWILL')
+    const expectedAmount = sc.goodwillDiscount ?? 0
+    if (expectedAmount > 0 && !goodwillRow?.textPreview.includes(`-${expectedAmount.toFixed(2)}`)) {
+      failures.push(`[${languageMode}/${sc.name}] MAIN_GOODWILL: expected rendered discount -${expectedAmount.toFixed(2)}`)
+    }
+    if (expectedAmount === 0 && (!goodwillRow?.textPreview.includes('0.00') || goodwillRow.textPreview.includes('-0.00'))) {
+      failures.push(`[${languageMode}/${sc.name}] MAIN_GOODWILL: expected rendered zero discount 0.00`)
     }
   }
 
