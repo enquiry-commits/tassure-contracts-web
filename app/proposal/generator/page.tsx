@@ -266,10 +266,6 @@ function GeneratePageContent() {
   }, [])
 
   const handleGenerate = async (mode: 'full' | 'selected') => {
-    if (!/[\p{L}\p{N}]/u.test(companyName.trim())) {
-      setError('Please enter a valid Company Name (letters or numbers required)')
-      return
-    }
     if (!selectedPic) { setError('Please select a PIC'); return }
     setGenerating(true)
     setError(null)
@@ -513,7 +509,7 @@ function GeneratePageContent() {
           <div className="text-[10px] font-bold text-gray-400 tracking-widest mb-4">CLIENT INFORMATION</div>
 
           {[
-            { label: 'Company Name  企业名字', val: companyName, set: setCompanyName, ph: 'Enter company name' },
+            { label: 'Company Name (Optional)  企业名字（选填）', val: companyName, set: setCompanyName, ph: 'Optional' },
             { label: 'Proposal Date', val: proposalDate, set: setProposalDate, ph: '' },
             { label: 'Salutation (English)', val: salEn, set: setSalEn, ph: '' },
             { label: 'Salutation (Chinese)', val: salCn, set: setSalCn, ph: '' },

@@ -46,6 +46,7 @@ export interface RowReport {
 export interface DocReport {
   languageMode: LanguageMode
   companyNameFound: boolean
+  companyNameHasValue: boolean
   dateFound: boolean
   tables: { tableIndex: number; tableName: string; rowCount: number; rows: RowReport[] }[]
 }
@@ -120,12 +121,12 @@ export function analyzeDocumentXml(xmlDoc: any, languageMode: LanguageMode): Doc
   const body = xmlDoc.getElementsByTagName('w:body')[0]
   const paras = directChildren(body, 'p')
   const dateFound = paras.length > 0 && /Date:\s*\S/.test(paraText(paras[0]))
-  const companyNameFound = paras.slice(0, 5).some((p: Element) => {
-    const t = paraText(p)
-    const idx = t.indexOf('Company Name')
-    if (idx === -1) return false
-    return /:\s*\S/.test(t.slice(idx))
-  })
+  const companyLine = paras.slice(0, 5).map((p: Element) => paraText(p)).find((text: string) => text.includes('Company Name'))
+  const companyNameFound = companyLine !== undefined
+  const companyNameHasValue = companyLine !== undefined && (() => {
+    const idx = companyLine.indexOf('Company Name')
+    return /:\s*\S/.test(companyLine.slice(idx))
+  })()
 
   const { rowIdToSvc, rowDefs } = getDefinitionSet(languageMode)
 
@@ -185,12 +186,12 @@ export function analyzeDocumentXml(xmlDoc: any, languageMode: LanguageMode): Doc
     return { tableIndex, tableName, rowCount: rows.length, rows }
   })
 
-  return { languageMode, companyNameFound, dateFound, tables: tableReports }
+  return { languageMode, companyNameFound, companyNameHasValue, dateFound, tables: tableReports }
 }
 
 export function printReport(report: DocReport, label: string): number {
   console.log(`\n=== DOCX Inspection: ${label} (${report.languageMode}) ===`)
-  console.log(`Header: Date found=${report.dateFound ? 'YES' : 'NO'}  CompanyName found=${report.companyNameFound ? 'YES' : 'NO'}`)
+  console.log(`Header: Date found=${report.dateFound ? 'YES' : 'NO'}  Company line=${report.companyNameFound ? 'YES' : 'NO'}  Company value=${report.companyNameHasValue ? 'YES' : 'BLANK'}`)
   let issues = 0
   for (const t of report.tables) {
     console.log(`\n--- Table ${t.tableIndex} (${t.tableName}) — ${t.rowCount} rows ---`)

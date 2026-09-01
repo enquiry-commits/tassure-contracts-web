@@ -11,6 +11,7 @@ interface VisualScenario {
   languageMode: LanguageMode
   selected: string[]
   description: string
+  companyName?: string
 }
 
 const ALL_SERVICES = SERVICES.map((service) => service.key)
@@ -20,10 +21,12 @@ const DYNAMIC_STRESS = ['INCORP', 'ACCOUNTS', 'ND2', 'ND_DEPOSIT2', 'XBRL', 'AUD
 
 const SCENARIOS: VisualScenario[] = [
   { name: 'bilingual-minimal', languageMode: 'bilingual', selected: MINIMAL, description: 'Minimal bilingual proposal' },
+  { name: 'bilingual-empty-company-name', languageMode: 'bilingual', selected: MINIMAL, description: 'Bilingual proposal with a blank company name', companyName: '' },
   { name: 'bilingual-nd-zero-deposit', languageMode: 'bilingual', selected: ND_ZERO_DEPOSIT, description: 'Bilingual nominee director with zero primary deposit' },
   { name: 'bilingual-dynamic-stress', languageMode: 'bilingual', selected: DYNAMIC_STRESS, description: 'Bilingual dynamic rows and nominee deposit' },
   { name: 'bilingual-all-services', languageMode: 'bilingual', selected: ALL_SERVICES, description: 'Bilingual full service selection' },
   { name: 'english-minimal', languageMode: 'english-only', selected: MINIMAL, description: 'Minimal English proposal' },
+  { name: 'english-empty-company-name', languageMode: 'english-only', selected: MINIMAL, description: 'English proposal with a blank company name', companyName: '' },
   { name: 'english-nd-zero-deposit', languageMode: 'english-only', selected: ND_ZERO_DEPOSIT, description: 'English nominee director with zero primary deposit' },
   { name: 'english-dynamic-stress', languageMode: 'english-only', selected: DYNAMIC_STRESS, description: 'English dynamic rows and nominee deposit' },
   { name: 'english-all-services', languageMode: 'english-only', selected: ALL_SERVICES, description: 'English full service selection' },
@@ -49,7 +52,7 @@ async function main() {
     const scenarioFeeOverrides = { ...feeOverrides }
     if (selected.includes('ND')) scenarioFeeOverrides.ND_DEPOSIT = 0
     const input: DocInput = {
-      companyName: 'Tassure Visual QA Pte. Ltd.',
+      companyName: scenario.companyName ?? 'Tassure Visual QA Pte. Ltd.',
       date: '29 August 2026',
       salutationEn: 'Dear Management,',
       salutationCn: '尊敬的管理层：',

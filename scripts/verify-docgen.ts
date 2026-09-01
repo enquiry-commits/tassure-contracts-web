@@ -50,7 +50,7 @@ const DYNAMIC_KEYS = ['CERT', 'DP_MAIN', 'LOC_MAIN', 'GOODWILL_DISC', 'DP_RENEW'
 const ANCHOR_KEYS = ['INCORP', 'ACCOUNTS'] // one main-table, one opt-table service
 const BASELINE = [...ANCHOR_KEYS]
 
-interface Scenario { name: string; selected: string[] }
+interface Scenario { name: string; selected: string[]; companyName?: string }
 
 function scenario(name: string, extra: string[]): Scenario {
   const sel = new Set([...BASELINE, ...extra])
@@ -60,6 +60,7 @@ function scenario(name: string, extra: string[]): Scenario {
 
 const SCENARIOS: Scenario[] = [
   scenario('minimal', []),
+  { ...scenario('empty-company-name', []), companyName: '' },
   scenario('all-services', SERVICES.map((service) => service.key)),
   ...SERVICES.map((service) => scenario(`with-${service.key}`, [service.key])),
 ]
@@ -71,7 +72,7 @@ async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<st
   if (sc.selected.includes('ND')) feeOverrides.ND_DEPOSIT = 0
   if (sc.selected.includes('ND_DEPOSIT2')) feeOverrides.ND_DEPOSIT2 = 3000
   const input: DocInput = {
-    companyName: 'Verify Test Pte Ltd',
+    companyName: sc.companyName ?? 'Verify Test Pte Ltd',
     date: '01 January 2026',
     salutationEn: 'Dear Management,',
     salutationCn: '尊敬的领导，',
@@ -133,7 +134,13 @@ function assertScenario(report: DocReport, sc: Scenario, languageMode: string, p
   }
 
   // Header always populated.
-  if (!report.companyNameFound) failures.push(`[${languageMode}/${sc.name}] Company Name missing/empty in header`)
+  if (!report.companyNameFound) failures.push(`[${languageMode}/${sc.name}] Company Name label missing from header`)
+  if (sc.companyName === '' && report.companyNameHasValue) {
+    failures.push(`[${languageMode}/${sc.name}] Company Name should remain blank`)
+  }
+  if (sc.companyName !== '' && !report.companyNameHasValue) {
+    failures.push(`[${languageMode}/${sc.name}] Company Name value missing from header`)
+  }
   if (!report.dateFound) failures.push(`[${languageMode}/${sc.name}] Date missing/empty in header`)
 
   // Fee-cell shape consistency vs. the majority ("reference") shape.

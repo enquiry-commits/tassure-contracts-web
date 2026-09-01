@@ -761,13 +761,6 @@ function removeServiceSections(body: Element, selected: Set<string>, xmlDoc: any
   for (const elem of toDelete) elem.parentNode?.removeChild(elem)
 }
 
-function assertMeaningfulCompanyName(companyName: string): void {
-  const normalized = companyName.trim()
-  if (!normalized || !/[\p{L}\p{N}]/u.test(normalized)) {
-    throw new Error('Proposal contract failed: company name must contain at least one letter or number')
-  }
-}
-
 function assertGeneratedProposalContract(body: Element, input: DocInput, plan: ProposalPlan): void {
   const failures: string[] = []
   const companyName = input.companyName.trim()
@@ -779,10 +772,17 @@ function assertGeneratedProposalContract(body: Element, input: DocInput, plan: P
     const textNodes = [...allDescendants(paragraph, 't'), ...allDescendants(paragraph, 'w:t')]
     return textNodes.map((node) => node.textContent ?? '').join('')
   })
-  const hasCompanyLine = bodyParagraphTexts.some(
-    (text) => text.includes('Company Name') && text.includes(companyName),
-  )
-  if (!hasCompanyLine) failures.push('company name is missing from the document header')
+  const companyLine = bodyParagraphTexts.find((text) => text.includes('Company Name'))
+  if (!companyLine) {
+    failures.push('company name line is missing from the document header')
+  } else if (companyName && !companyLine.includes(companyName)) {
+    failures.push('company name is missing from the document header')
+  } else if (!companyName) {
+    const colonIndex = companyLine.indexOf(':')
+    if (colonIndex === -1 || /\S/.test(companyLine.slice(colonIndex + 1))) {
+      failures.push('company name should remain blank in the document header')
+    }
+  }
   if (!bodyParagraphTexts.some((text) => /Date:\s*\S/.test(text))) {
     failures.push('proposal date is missing from the document header')
   }
@@ -2214,7 +2214,6 @@ function removeChineseContent(body: Element): void {
 // ── main export ───────────────────────────────────────────────────────────────
 
 export async function generateDocx(input: DocInput): Promise<Buffer> {
-  assertMeaningfulCompanyName(input.companyName)
   const plan = buildProposalPlan(input)
   const { templateFileName } = getDefinitionSet(input.languageMode)
   const templatePath = join(process.cwd(), 'template', templateFileName)

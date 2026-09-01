@@ -17,9 +17,10 @@ export async function POST(request: NextRequest) {
       focServices,
       languageMode,
     } = body
+    const normalizedCompanyName = typeof companyName === 'string' ? companyName.trim() : ''
 
-    if (!companyName || !/[\p{L}\p{N}]/u.test(String(companyName).trim()) || !pic) {
-      return NextResponse.json({ error: 'companyName and pic are required' }, { status: 400 })
+    if (!pic) {
+      return NextResponse.json({ error: 'pic is required' }, { status: 400 })
     }
 
     const supabase = createSupabaseAdminClient()
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
     let docBuffer: Buffer
     try {
       docBuffer = await generateDocx({
-        companyName,
+        companyName: normalizedCompanyName,
         date: date || new Date().toLocaleDateString('en-SG', { day: '2-digit', month: 'long', year: 'numeric' }),
         salutationEn: salutationEn || 'Dear Management,',
         salutationCn: salutationCn || '尊敬的领导，',
@@ -81,8 +82,10 @@ export async function POST(request: NextRequest) {
     const refDatePart = referenceId.slice(0, 8) // YYYYMMDD
     const year = refDatePart.slice(0, 4)
     const month = refDatePart.slice(4, 6)
-    const safeName = companyName.replace(/[^a-zA-Z0-9 _-]/g, '_').trim()
-    const storageFileName = `Tassure_Proposal_${safeName.replace(/\s+/g, '_')}_${referenceId}.docx`
+    const safeName = normalizedCompanyName.replace(/[^a-zA-Z0-9 _-]/g, '_').trim().replace(/\s+/g, '_')
+    const storageFileName = safeName
+      ? `Tassure_Proposal_${safeName}_${referenceId}.docx`
+      : `Tassure_Proposal_${referenceId}.docx`
     const displayFileName = storageFileName
     const filePath = `contracts/${year}/${month}/${storageFileName}`
 
@@ -91,7 +94,7 @@ export async function POST(request: NextRequest) {
     // visual gate. Existing proposals are left untouched until approval.
     const qaJob = await enqueueVisualQaJob(supabase, {
       referenceId,
-      clientName: companyName.trim(),
+      clientName: normalizedCompanyName,
       pic,
       replaceId: existingId || null,
       oldFilePath,
