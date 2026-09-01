@@ -218,15 +218,44 @@ async function processPending(): Promise<number> {
   return processed
 }
 
+// A single stuck/failed job already fails closed on its own (processJob's
+// own try/catch marks it 'failed' and clears its pending marker via
+// failVisualQaJob, so it is never retried in a tight loop). What was NOT
+// covered: a transient failure in the polling machinery itself — a
+// heartbeat upload hiccup, a Supabase list() call blip, anything thrown
+// outside processJob's own try/catch — was left to escape this loop
+// entirely and reach the outer main().catch() below, which exits the whole
+// --watch process. On this machine that means depending on Task
+// Scheduler's fixed 5-attempts/1-minute-apart RestartOnFailure budget to
+// resurrect the worker; if the underlying contention (e.g. another process
+// also using Word) outlasts that ~5 minute budget, the worker stops for
+// good until someone notices and restarts it by hand — exactly what
+// happened during this investigation. Catching per-iteration failures here
+// keeps the --watch loop itself alive indefinitely; only a truly fatal,
+// uncatchable failure (not a network blip, not one hung render) should
+// ever reach the outer handler now.
+async function runOnce(): Promise<void> {
+  await heartbeat('idle')
+  await processPending()
+}
+
 async function main(): Promise<void> {
   do {
-    await heartbeat('idle')
-    await processPending()
+    try {
+      await runOnce()
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('Worker iteration failed; will retry on the next poll:', message)
+      try { await heartbeat(`error:${message}`) } catch { /* best effort */ }
+    }
     if (WATCH) await new Promise((resolvePromise) => setTimeout(resolvePromise, POLL_MS))
   } while (WATCH)
 }
 
 main().catch(async (error) => {
+  // Only reachable for a single-shot (-Once) run, or a failure inside this
+  // catch/backoff scaffolding itself — the --watch loop above no longer
+  // propagates ordinary per-iteration failures here.
   console.error(error)
   try { await heartbeat(`error:${String(error)}`) } catch { /* best effort */ }
   process.exit(1)
