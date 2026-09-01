@@ -40,6 +40,10 @@ const DYNAMIC_TARGETS: Record<string, { bilingual: string[]; 'english-only': str
 }
 
 const SERVICE_KEYS = new Set(SERVICES.map((service) => service.key))
+// The primary nominee-director deposit is a fee-bearing sub-row of ND rather
+// than a standalone service. It is therefore intentionally absent from
+// SERVICES, but the generator and quote builder both support overriding it.
+const FEE_OVERRIDE_KEYS = new Set([...SERVICE_KEYS, 'ND_DEPOSIT'])
 const CC_KEYS = new Set(CC_ITEMS.map((item) => item.key))
 
 function unique(values: string[]): string[] {
@@ -65,7 +69,10 @@ export function buildProposalPlan(input: ProposalPlanInput): ProposalPlan {
   if (selected.includes('ND_DEPOSIT2') && !selected.includes('ND2')) {
     throw new Error('selected: ND_DEPOSIT2 requires ND2')
   }
-  assertFiniteAmounts(input.feeOverrides, SERVICE_KEYS, 'feeOverrides')
+  if (input.feeOverrides.ND_DEPOSIT !== undefined && !selected.includes('ND')) {
+    throw new Error('feeOverrides: ND_DEPOSIT requires ND')
+  }
+  assertFiniteAmounts(input.feeOverrides, FEE_OVERRIDE_KEYS, 'feeOverrides')
   assertFiniteAmounts(input.ccOverrides, CC_KEYS, 'ccOverrides')
 
   const suppliedMapping = input.sectionMapping ?? defaultMapping

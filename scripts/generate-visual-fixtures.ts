@@ -15,13 +15,16 @@ interface VisualScenario {
 
 const ALL_SERVICES = SERVICES.map((service) => service.key)
 const MINIMAL = ['INCORP', 'ACCOUNTS']
+const ND_ZERO_DEPOSIT = ['INCORP', 'ND', 'ACCOUNTS']
 const DYNAMIC_STRESS = ['INCORP', 'ACCOUNTS', 'ND2', 'ND_DEPOSIT2', 'XBRL', 'AUDIT', 'AIS']
 
 const SCENARIOS: VisualScenario[] = [
   { name: 'bilingual-minimal', languageMode: 'bilingual', selected: MINIMAL, description: 'Minimal bilingual proposal' },
+  { name: 'bilingual-nd-zero-deposit', languageMode: 'bilingual', selected: ND_ZERO_DEPOSIT, description: 'Bilingual nominee director with zero primary deposit' },
   { name: 'bilingual-dynamic-stress', languageMode: 'bilingual', selected: DYNAMIC_STRESS, description: 'Bilingual dynamic rows and nominee deposit' },
   { name: 'bilingual-all-services', languageMode: 'bilingual', selected: ALL_SERVICES, description: 'Bilingual full service selection' },
   { name: 'english-minimal', languageMode: 'english-only', selected: MINIMAL, description: 'Minimal English proposal' },
+  { name: 'english-nd-zero-deposit', languageMode: 'english-only', selected: ND_ZERO_DEPOSIT, description: 'English nominee director with zero primary deposit' },
   { name: 'english-dynamic-stress', languageMode: 'english-only', selected: DYNAMIC_STRESS, description: 'English dynamic rows and nominee deposit' },
   { name: 'english-all-services', languageMode: 'english-only', selected: ALL_SERVICES, description: 'English full service selection' },
 ]
@@ -43,6 +46,8 @@ async function main() {
   const manifest: Array<VisualScenario & { file: string }> = []
   for (const scenario of SCENARIOS) {
     const selected = [...new Set(scenario.selected)]
+    const scenarioFeeOverrides = { ...feeOverrides }
+    if (selected.includes('ND')) scenarioFeeOverrides.ND_DEPOSIT = 0
     const input: DocInput = {
       companyName: 'Tassure Visual QA Pte. Ltd.',
       date: '29 August 2026',
@@ -50,7 +55,7 @@ async function main() {
       salutationCn: '尊敬的管理层：',
       mode: 'selected',
       selected,
-      feeOverrides,
+      feeOverrides: scenarioFeeOverrides,
       ccOverrides,
       focServices: SERVICES
         .filter((service) => selected.includes(service.key) && ['foc', 'bundled'].includes(service.fee_type))

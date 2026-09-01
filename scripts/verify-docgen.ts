@@ -65,6 +65,11 @@ const SCENARIOS: Scenario[] = [
 ]
 
 async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<string[]> {
+  // Match the quote builder's conditional special-field payload exactly.
+  // The reported production failure was ND selected with a zero deposit.
+  const feeOverrides: Record<string, number> = { GOODWILL_DISC: 100 }
+  if (sc.selected.includes('ND')) feeOverrides.ND_DEPOSIT = 0
+  if (sc.selected.includes('ND_DEPOSIT2')) feeOverrides.ND_DEPOSIT2 = 3000
   const input: DocInput = {
     companyName: 'Verify Test Pte Ltd',
     date: '01 January 2026',
@@ -72,7 +77,7 @@ async function runScenario(languageMode: LanguageMode, sc: Scenario): Promise<st
     salutationCn: '尊敬的领导，',
     mode: 'selected',
     selected: sc.selected,
-    feeOverrides: { GOODWILL_DISC: 100, ND_DEPOSIT2: 3000 },
+    feeOverrides,
     ccOverrides: {},
     focServices: [],
     languageMode,
@@ -115,6 +120,15 @@ function assertScenario(report: DocReport, sc: Scenario, languageMode: string, p
       if (count !== expected) {
         failures.push(`[${languageMode}/${sc.name}] ${impact.serviceKey}/${rowId}: expected ${expected}, found ${count}`)
       }
+    }
+  }
+
+  // ND's deposit is a sub-row, not a service. Verify the exact zero-value
+  // payload that previously failed reaches the generated DOCX unchanged.
+  if (selSet.has('ND')) {
+    const depositRow = allRows.find((row) => row.rid === 'MAIN_ND_DEPOSIT')
+    if (!depositRow?.textPreview.includes('0.00')) {
+      failures.push(`[${languageMode}/${sc.name}] MAIN_ND_DEPOSIT: expected rendered fee 0.00`)
     }
   }
 
