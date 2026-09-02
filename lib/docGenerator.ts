@@ -806,6 +806,25 @@ function assertGeneratedProposalContract(body: Element, input: DocInput, plan: P
     for (const row of directChildren(table, 'tr')) {
       const rowId = findMarkedRowId(row)
       if (rowId) actualRowCounts.set(rowId, (actualRowCounts.get(rowId) ?? 0) + 1)
+
+      // Every marked row's text should have balanced parentheses. Content
+      // built as separate English/Chinese runs (any dynamically-created
+      // row) can end up with a parenthesis living only in one language's
+      // run -- fine if both languages render, but if that run is dropped
+      // for the active languageMode, the other side is left with an
+      // unmatched "(" or ")". Concretely caught the DP_RENEW fee cell
+      // rendering "(Government fee included" with no close in
+      // english-only mode; this check runs on every real generation, not
+      // just the offline verify-docgen suite, so a similar bug in any
+      // other row fails closed here instead of silently publishing.
+      if (rowId) {
+        const rowText = cellText(row)
+        const opens = (rowText.match(/\(/g) ?? []).length
+        const closes = (rowText.match(/\)/g) ?? []).length
+        if (opens !== closes) {
+          failures.push(`${rowId}: unbalanced parentheses in rendered text (${opens} "(" vs ${closes} ")")`)
+        }
+      }
     }
   }
 
