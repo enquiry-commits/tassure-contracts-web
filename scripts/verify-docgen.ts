@@ -153,6 +153,29 @@ function assertScenario(report: DocReport, sc: Scenario, languageMode: string, p
     }
   }
 
+  // Every row's text should have balanced parentheses. Content built as
+  // separate English/Chinese runs (common in dynamically-created rows) can
+  // end up with a parenthesis living only in the Chinese-only run -- fine
+  // in bilingual mode where both runs render, but if the Chinese run is
+  // dropped entirely for english-only mode (or, before this check existed,
+  // stripped in a way that left a stray fragment behind) the English side
+  // is left with an unmatched "(" and no ")". Caught exactly this on
+  // DP_RENEW's fee cell: "(Government fee included" with no close.
+  // Skipped once textPreview hits inspect-docx's 120-char truncation --
+  // legitimately long rows (e.g. the company-changes table's free-form
+  // fee descriptions) can have their closing ")" cut off by the preview
+  // itself, which isn't a real content bug.
+  for (const t of report.tables) {
+    for (const r of t.rows) {
+      if (r.textPreview.length >= 120) continue
+      const opens = (r.textPreview.match(/\(/g) ?? []).length
+      const closes = (r.textPreview.match(/\)/g) ?? []).length
+      if (opens !== closes) {
+        failures.push(`[${languageMode}/${sc.name}] Table ${t.tableIndex} row ${r.rowIndex}: unbalanced parentheses (${opens} "(" vs ${closes} ")") in "${r.textPreview}"`)
+      }
+    }
+  }
+
   // Header always populated.
   if (!report.companyNameFound) failures.push(`[${languageMode}/${sc.name}] Company Name label missing from header`)
   if (sc.companyName === '' && report.companyNameHasValue) {

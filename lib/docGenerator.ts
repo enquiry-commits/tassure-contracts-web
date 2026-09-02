@@ -1866,19 +1866,31 @@ function processEpTable(
         descCell.appendChild(p0)
       }
 
-      // CN: Microsoft YaHei 9pt
-      const p1 = xmlDoc.createElement('w:p')
-      const p1Pr = xmlDoc.createElement('w:pPr')
-      const p1Spacing = xmlDoc.createElement('w:spacing')
-      p1Spacing.setAttribute('w:before', '0')
-      p1Spacing.setAttribute('w:after', '0')
-      p1Pr.appendChild(p1Spacing)
-      p1.appendChild(p1Pr)
-      p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
-      if (descTcPr) {
-        descCell.insertBefore(p1, p0.nextSibling || descTcPr.nextSibling)
-      } else {
-        descCell.appendChild(p1)
+      // CN: Microsoft YaHei 9pt. Built here as its own dedicated paragraph
+      // (unlike removeChineseContent()'s later strip-in-place pass, which
+      // only removes CJK characters from a run and can't safely remove a
+      // whole paragraph) -- so in english-only mode this paragraph must
+      // simply never be created, not created-then-cleaned-up. The earlier
+      // approach relied on removeChineseContent() to strip it afterward,
+      // but that function assumes text before the first CJK character is
+      // genuine standalone English worth preserving; here "DP" is part of
+      // the Chinese phrase itself ("DP 续约"), so it survived the strip as
+      // a stray leftover paragraph -- the "DP" line under "DP renewal
+      // service" reported this session.
+      if (languageMode === 'bilingual') {
+        const p1 = xmlDoc.createElement('w:p')
+        const p1Pr = xmlDoc.createElement('w:pPr')
+        const p1Spacing = xmlDoc.createElement('w:spacing')
+        p1Spacing.setAttribute('w:before', '0')
+        p1Spacing.setAttribute('w:after', '0')
+        p1Pr.appendChild(p1Spacing)
+        p1.appendChild(p1Pr)
+        p1.appendChild(makeCalibriRun('DP 续约（每2年一次）', '18', xmlDoc, 'Microsoft YaHei', false, 'Microsoft YaHei'))
+        if (descTcPr) {
+          descCell.insertBefore(p1, p0.nextSibling || descTcPr.nextSibling)
+        } else {
+          descCell.appendChild(p1)
+        }
       }
     }
 
@@ -1905,7 +1917,7 @@ function processEpTable(
         }
       }
 
-      // Line 1: "600.00/person 每位"
+      // Line 1: "600.00/person" (+ " 每位" in bilingual mode only)
       const p1 = xmlDoc.createElement('w:p')
       const pPr1 = xmlDoc.createElement('w:pPr')
       const jc1 = xmlDoc.createElement('w:jc')
@@ -1918,10 +1930,20 @@ function processEpTable(
       p1.appendChild(pPr1)
       const dpAmount = fmtNum(feeOv['DP_RENEW'] ?? 600)
       p1.appendChild(makeCalibriRun(dpAmount + '/person ', '20', xmlDoc, 'Calibri'))
-      p1.appendChild(makeCalibriRun('每位', '18', xmlDoc, 'Microsoft YaHei'))
+      if (languageMode === 'bilingual') p1.appendChild(makeCalibriRun('每位', '18', xmlDoc, 'Microsoft YaHei'))
       feeCell.insertBefore(p1, tcPr.nextSibling)
 
-      // Line 2: "(Government fee included"
+      // Line 2: "(Government fee included)" in english-only mode -- complete
+      // and self-contained, since there's no Chinese line 3 to carry the
+      // closing paren. In bilingual mode this stays open, "(Government fee
+      // included", and line 3 below closes it after the Chinese text --
+      // matching the static bilingual template's own existing text flow
+      // for this same phrase (one shared pair of parens wrapping both
+      // languages). Previously the closing paren always lived only in the
+      // Chinese-only run, so english-only output -- which drops that run
+      // entirely rather than relying on removeChineseContent() to strip it
+      // -- must supply its own now, or the line renders as "(Government
+      // fee included" missing its close, as reported this session.
       const p2 = xmlDoc.createElement('w:p')
       const pPr2 = xmlDoc.createElement('w:pPr')
       const jc2 = xmlDoc.createElement('w:jc')
@@ -1932,22 +1954,25 @@ function processEpTable(
       spacing2.setAttribute('w:after', '0')
       pPr2.appendChild(spacing2)
       p2.appendChild(pPr2)
-      p2.appendChild(makeCalibriRun('(Government fee included', '20', xmlDoc, 'Calibri'))
+      const governmentFeeText = languageMode === 'bilingual' ? '(Government fee included' : '(Government fee included)'
+      p2.appendChild(makeCalibriRun(governmentFeeText, '20', xmlDoc, 'Calibri'))
       feeCell.insertBefore(p2, p1.nextSibling)
 
-      // Line 3: "含政府费用)"
-      const p3 = xmlDoc.createElement('w:p')
-      const pPr3 = xmlDoc.createElement('w:pPr')
-      const jc3 = xmlDoc.createElement('w:jc')
-      jc3.setAttribute('w:val', 'left')
-      pPr3.appendChild(jc3)
-      const spacing3 = xmlDoc.createElement('w:spacing')
-      spacing3.setAttribute('w:before', '0')
-      spacing3.setAttribute('w:after', '0')
-      pPr3.appendChild(spacing3)
-      p3.appendChild(pPr3)
-      p3.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
-      feeCell.insertBefore(p3, p2.nextSibling)
+      // Line 3: "含政府费用)" -- bilingual only, see line 2's comment.
+      if (languageMode === 'bilingual') {
+        const p3 = xmlDoc.createElement('w:p')
+        const pPr3 = xmlDoc.createElement('w:pPr')
+        const jc3 = xmlDoc.createElement('w:jc')
+        jc3.setAttribute('w:val', 'left')
+        pPr3.appendChild(jc3)
+        const spacing3 = xmlDoc.createElement('w:spacing')
+        spacing3.setAttribute('w:before', '0')
+        spacing3.setAttribute('w:after', '0')
+        pPr3.appendChild(spacing3)
+        p3.appendChild(pPr3)
+        p3.appendChild(makeCalibriRun('含政府费用)', '18', xmlDoc, 'Microsoft YaHei'))
+        feeCell.insertBefore(p3, p2.nextSibling)
+      }
     }
 
     if (insertAfter.nextSibling) {
