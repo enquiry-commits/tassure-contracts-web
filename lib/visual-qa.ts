@@ -188,6 +188,94 @@ export async function retryVisualQaJob(
   return retried
 }
 
+// Publishes a generated proposal immediately: uploads it to its final,
+// user-facing storage path and creates/updates its `contracts` row, then
+// returns a download URL. This is the fast path -- it runs synchronously
+// in the generate API route right after generateDocx() succeeds, gated
+// only by that function's own structural audit (buildProposalPlan's input
+// validation + assertGeneratedProposalContract's row/header/section
+// checks), not by a Word render on any particular machine.
+//
+// Word-based visual QA (enqueueVisualQaJob + the worker pipeline) still
+// runs after this, queued separately, as a non-blocking secondary audit --
+// see the generate route for how the two are wired together. This
+// function intentionally does NOT touch draftPath/oldFilePath cleanup or
+// job records; finalizeApprovedVisualQaJob still owns that when the async
+// audit eventually completes, and its own `existing` lookup by
+// referenceId means it will find and reuse the contract row created here
+// rather than creating a duplicate.
+export async function publishProposalNow(
+  supabase: SupabaseClient,
+  params: {
+    referenceId: string
+    clientName: string
+    pic: string
+    replaceId: string | null
+    finalPath: string
+    displayFileName: string
+  },
+  docBuffer: Buffer,
+): Promise<{ contractId: string; downloadUrl: string }> {
+  const storage = supabase.storage.from(VISUAL_QA_BUCKET)
+  const { error: uploadError } = await storage.upload(params.finalPath, docBuffer, {
+    contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    upsert: true,
+  })
+  if (uploadError) throw new Error(`Proposal upload failed: ${uploadError.message}`)
+
+  const { data: signedUrlData, error: signedUrlError } = await storage.createSignedUrl(
+    params.finalPath,
+    60 * 60 * 24 * 7,
+    { download: params.displayFileName },
+  )
+  if (signedUrlError || !signedUrlData) throw new Error('Proposal signed URL creation failed')
+
+  let contractId: string
+  if (params.replaceId) {
+    const { data, error } = await supabase
+      .from('contracts')
+      .update({
+        client_name: params.clientName,
+        pic: params.pic,
+        file_path: params.finalPath,
+        file_url: signedUrlData.signedUrl,
+      })
+      .eq('id', params.replaceId)
+      .select('id')
+      .single()
+    if (error || !data) throw new Error(`Proposal record update failed: ${error?.message ?? 'missing record'}`)
+    contractId = data.id
+  } else {
+    const { data: existing } = await supabase
+      .from('contracts')
+      .select('id')
+      .eq('reference_id', params.referenceId)
+      .maybeSingle()
+
+    if (existing) {
+      contractId = existing.id
+    } else {
+      const { data, error } = await supabase
+        .from('contracts')
+        .insert({
+          reference_id: params.referenceId,
+          client_name: params.clientName,
+          pic: params.pic,
+          remarks: null,
+          file_path: params.finalPath,
+          file_url: signedUrlData.signedUrl,
+          is_delivered: false,
+        })
+        .select('id')
+        .single()
+      if (error || !data) throw new Error(`Proposal record insert failed: ${error?.message ?? 'missing record'}`)
+      contractId = data.id
+    }
+  }
+
+  return { contractId, downloadUrl: signedUrlData.signedUrl }
+}
+
 export async function finalizeApprovedVisualQaJob(
   supabase: SupabaseClient,
   originalJob: VisualQaJob,

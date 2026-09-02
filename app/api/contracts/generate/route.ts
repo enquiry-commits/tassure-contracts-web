@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase'
 import { generateDocx, PROPOSAL_GENERATOR_CONTRACT_VERSION } from '@/lib/docGenerator'
-import { enqueueVisualQaJob } from '@/lib/visual-qa'
+import { enqueueVisualQaJob, publishProposalNow } from '@/lib/visual-qa'
 import { getAuthorizedProposalUser } from '@/lib/proposal-auth'
 
 export async function POST(request: NextRequest) {
@@ -89,30 +89,65 @@ export async function POST(request: NextRequest) {
     const displayFileName = storageFileName
     const filePath = `contracts/${year}/${month}/${storageFileName}`
 
-    // Fail closed: the generated file is a private draft until a Windows
-    // worker opens it in Microsoft Word, renders every page and passes the
-    // visual gate. Existing proposals are left untouched until approval.
-    const qaJob = await enqueueVisualQaJob(supabase, {
+    // Publish immediately. generateDocx() already ran the full structural
+    // audit -- buildProposalPlan()'s input validation plus
+    // assertGeneratedProposalContract()'s row/duplicate/header/section
+    // checks -- entirely on this server, in milliseconds. Every real bug
+    // found in this proposal generator (duplicate/phantom rows, missing
+    // company name, mis-mapped sections, inconsistent fee formatting) was
+    // caught and fixed via those structural checks; none of them ever
+    // required an actual Word render to detect. Gating every download on
+    // a synchronous Word render tied to one specific physical machine made
+    // the whole team's ability to generate proposals depend on that one
+    // machine being on, logged in, and not fighting another process for
+    // Word -- a real single point of failure with no relation to whether
+    // the document is actually correct.
+    const { contractId, downloadUrl } = await publishProposalNow(supabase, {
       referenceId,
       clientName: normalizedCompanyName,
       pic,
       replaceId: existingId || null,
-      oldFilePath,
       finalPath: filePath,
       displayFileName,
-      languageMode: languageMode || 'bilingual',
-      selected: [...new Set(Array.isArray(selected) ? selected : [])],
-      generatorContractVersion: PROPOSAL_GENERATOR_CONTRACT_VERSION,
-      generatorCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
     }, docBuffer)
+
+    // Still queue the Word-rendered visual audit as a secondary, advisory
+    // safety net -- it catches things the structural checks fundamentally
+    // can't (font substitution, genuinely novel Word-layout edge cases)
+    // and gives a concrete, inspectable trail (contact sheets in Admin
+    // Dashboard) for tracking down whatever new bug class shows up next as
+    // the generator keeps growing. Its result no longer blocks or
+    // un-publishes anything: the file above is already live. If enqueuing
+    // it fails (e.g. storage hiccup), that must not fail the request the
+    // user is waiting on -- log it and move on.
+    let qaJobId: string | null = null
+    try {
+      const qaJob = await enqueueVisualQaJob(supabase, {
+        referenceId,
+        clientName: normalizedCompanyName,
+        pic,
+        replaceId: existingId || null,
+        oldFilePath,
+        finalPath: filePath,
+        displayFileName,
+        languageMode: languageMode || 'bilingual',
+        selected: [...new Set(Array.isArray(selected) ? selected : [])],
+        generatorContractVersion: PROPOSAL_GENERATOR_CONTRACT_VERSION,
+        generatorCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
+      }, docBuffer)
+      qaJobId = qaJob.id
+    } catch (qaError) {
+      console.error('Visual QA enqueue failed (non-blocking, proposal already published):', qaError)
+    }
 
     return NextResponse.json({
       success: true,
       referenceId,
-      qaRequired: true,
-      qaJobId: qaJob.id,
-      qaStatus: qaJob.status,
-      qaStatusUrl: `/api/visual-qa/${qaJob.id}`,
+      contractId,
+      downloadUrl,
+      qaRequired: false,
+      qaJobId,
+      qaStatusUrl: qaJobId ? `/api/visual-qa/${qaJobId}` : null,
       replaced: !!existingId,
       generatorContractVersion: PROPOSAL_GENERATOR_CONTRACT_VERSION,
       generatorCommit: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',

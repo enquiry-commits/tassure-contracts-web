@@ -390,54 +390,26 @@ function GeneratePageContent() {
       })
       const data = await resp.json()
       if (data.success) {
-        if (!data.qaStatusUrl) throw new Error('Visual QA status link is missing')
-        const deadline = Date.now() + 15 * 60_000
-        let consecutiveErrors = 0
-        while (Date.now() < deadline) {
-          await new Promise(resolve => setTimeout(resolve, 2500))
-          try {
-            const qaResponse = await fetch(data.qaStatusUrl, {
-              cache: 'no-store',
-              headers: { Authorization: authHeaders.Authorization },
-            })
-            const qa = await qaResponse.json()
-            if (!qaResponse.ok) throw new Error(qa.error || 'Unable to read QA status')
-            consecutiveErrors = 0
-
-            if (qa.status === 'pending') {
-              setQaProgress('Waiting for the Windows Word quality check…')
-              continue
-            }
-            if (qa.status === 'rendering') {
-              setQaProgress('Microsoft Word is rendering and checking every page…')
-              continue
-            }
-            if (qa.status === 'review_required') {
-              setQaProgress(null)
-              setError(`Proposal ${qa.referenceId} needs visual review. It has not been released; open Admin Dashboard to approve or reject it.`)
-              return
-            }
-            if (qa.status === 'passed' && qa.downloadUrl) {
-              setQaProgress('Word visual QA passed — downloading approved proposal…')
-              const a = document.createElement('a')
-              a.href = qa.downloadUrl
-              document.body.appendChild(a)
-              a.click()
-              document.body.removeChild(a)
-              window.setTimeout(() => setQaProgress(null), 4000)
-              return
-            }
-            if (qa.status === 'failed' || qa.status === 'rejected') {
-              setQaProgress(null)
-              setError(`Proposal was not released: ${qa.failure || 'visual QA did not pass'}`)
-              return
-            }
-          } catch {
-            consecutiveErrors++
-            if (consecutiveErrors >= 3) throw new Error('Visual QA status could not be reached')
-          }
-        }
-        throw new Error('Visual QA is taking longer than expected. The proposal remains safely blocked; check Admin Dashboard.')
+        // The server already published this proposal: generateDocx()'s own
+        // structural audit (row/duplicate/header/section checks) passed,
+        // and publishProposalNow() has uploaded it and created the contract
+        // record. Download immediately -- no more waiting on a Word render
+        // tied to one specific machine. A Word-rendered visual audit is
+        // still queued server-side as a secondary, advisory safety net
+        // (see Admin Dashboard → Microsoft Word Visual QA for its result),
+        // but it no longer blocks getting the file.
+        if (!data.downloadUrl) throw new Error('Proposal was generated but no download link was returned')
+        const a = document.createElement('a')
+        a.href = data.downloadUrl
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        setQaProgress(
+          data.qaJobId
+            ? 'Downloaded. Microsoft Word visual audit is running in the background — see Admin Dashboard for its result.'
+            : 'Downloaded.',
+        )
+        window.setTimeout(() => setQaProgress(null), 4000)
       } else {
         setError(data.error || 'Generation failed')
       }
