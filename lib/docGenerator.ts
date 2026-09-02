@@ -135,8 +135,22 @@ function fmtNum(n: number): string {
 
 // Split text at first Chinese character: ["English part", "中文部分"]
 function splitAtChinese(text: string): [string, string] {
-  // Match Chinese characters AND Chinese punctuation/symbols
-  const m = text.search(/[一-鿿㐀-䶿（）【】《》「」『』、；，。！？：…]/u)
+  // Match Chinese characters AND Chinese punctuation/symbols. Punctuation-
+  // only marks (parens, brackets, the ellipsis "…", etc.) only count as
+  // "Chinese starts here" when the text ALSO contains at least one genuine
+  // CJK ideograph. Without that guard, a text node that's purely
+  // decorative -- e.g. the signature block's dotted underline, built from
+  // a repeated "…" with no actual Chinese words -- gets misclassified as
+  // translatable Chinese content. removeChineseContent() then wipes it to
+  // nothing for english-only output: the dotted line disappeared entirely,
+  // as reported this session. Genuine bilingual text (e.g. a Chinese
+  // phrase ending in "…") still has real ideographs elsewhere in the
+  // string, so this guard doesn't change how those split.
+  const hasIdeograph = /[一-鿿㐀-䶿]/u.test(text)
+  const pattern = hasIdeograph
+    ? /[一-鿿㐀-䶿（）【】《》「」『』、；，。！？：…]/u
+    : /[一-鿿㐀-䶿]/u
+  const m = text.search(pattern)
   return m === -1 ? [text, ''] : [text.slice(0, m), text.slice(m)]
 }
 
